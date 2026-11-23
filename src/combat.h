@@ -302,4 +302,5 @@ struct StationRT {
   std::string status;
   int shots = 0, burst = 0;               // burst: rounds since the trigger was pressed (MG 42 tail on release)
   float cool = 0;
+  float fuse = -1, speed = 0, rollL = 0, rollR = 0;   // CAN1 cannon: fuse burning (s, -1 none), carriage speed along +z (m/s), wheel travel per side (m)
 };

@@ -1,0 +1,163 @@
+{
+ "id": "gun_cannon18",
+ "version": 1,
+ "name": "18th-century field cannon",
+ "category": "Field guns",
+ "description": "A muzzle-loading field cannon on a wheeled carriage (LACooper, CC-BY-4.0). Crew it from the gunner (Aim): -20 to +60 deg elevation; the carriage turns with the aim. Fire lights the fuse at the vent; the round shot bursts on impact (area damage). Ten rounds, 5 s to load each. Move: push the carriage on its wheels (W/S, A/D). Game values.",
+ "floors": 0,
+ "enterable": false,
+ "footprint": [
+  1.384,
+  3.25
+ ],
+ "plinthDepth": 0,
+ "maxGrade": 0.6,
+ "noAutoPanels": true,
+ "materials": [
+  {
+   "name": "wood",
+   "albedo": [
+    0.36,
+    0.27,
+    0.17
+   ],
+   "roughness": 0.85,
+   "pattern": "wood",
+   "metallic": 0,
+   "grain": 1
+  }
+ ],
+ "parts": [
+  {
+   "t": "b",
+   "c": [
+    0,
+    0.466,
+    -0.77
+   ],
+   "s": [
+    1.107,
+    0.932,
+    1.709
+   ],
+   "m": "wood",
+   "v": 0
+  },
+  {
+   "t": "b",
+   "c": [
+    0,
+    1.035,
+    0.006
+   ],
+   "s": [
+    0.36,
+    0.36,
+    3.236
+   ],
+   "m": "wood",
+   "v": 0
+  }
+ ],
+ "model": {
+  "src": "cannon18.glb",
+  "dir": "cannon18",
+  "pivot": "ground",
+  "scale": 1,
+  "maxTex": 1024,
+  "stationRoles": {
+   "tube": "elevation",
+   "fuse": "fuse",
+   "wheel_": "wheel"
+  }
+ },
+ "models": [
+  {
+   "dir": "cannonball",
+   "bake": {
+    "src": "cannonball.glb",
+    "lod1": 0
+   }
+  }
+ ],
+ "station": {
+  "kind": "cannon",
+  "yawPivot": [
+   -0.0,
+   1.0354,
+   0.0841
+  ],
+  "elevPivot": [
+   -0.0,
+   1.0354,
+   0.0841
+  ],
+  "muzzle": [
+   -0.0,
+   1.0351,
+   1.6246
+  ],
+  "optic": [
+   -0.0,
+   1.2551,
+   -2.1618
+  ],
+  "gunner": [
+   0.55,
+   0.0,
+   -2.362
+  ],
+  "handler": [
+   0.0,
+   0.0,
+   -2.075
+  ],
+  "vent": [
+   -0.0,
+   1.3358,
+   -1.1918
+  ],
+  "fuseTip": [
+   -0.0,
+   1.3608,
+   -1.2918
+  ],
+  "fuseTime": 1.0,
+  "traverse": [
+   -45,
+   45
+  ],
+  "elevation": [
+   -20,
+   60
+  ],
+  "traverseRate": 10,
+  "elevateRate": 12,
+  "recoil": 0.9,
+  "reloadTime": 5,
+  "loaded": 1,
+  "reserve": 9,
+  "ammo": "round_shot",
+  "moveHalf": [
+   0.692,
+   0.693,
+   1.625
+  ],
+  "serviceRadius": 6,
+  "pushSpeed": 0.9,
+  "label": "18th-century field cannon",
+  "heName": "Round shot",
+  "sightFov": 60,
+  "muzzleScale": 1.6,
+  "fireSound": "pak_fire",
+  "shellHE": {
+   "velocity": 85,
+   "damage": 160,
+   "radius": 5.0,
+   "crater": 0.6,
+   "gravity": 2.0
+  },
+  "ball": "cannonball",
+  "note": "CAN1: ten rounds (1 loaded + 9), 5 s to load; the ball drops at gravity x2 (moderately quick); bursts on contact with ground or a soldier (radius m)."
+ }
+}

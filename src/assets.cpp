@@ -1119,6 +1119,9 @@ void AssetLibrary::build(AssetDef& ad) const {
     if (sj.contains("shellHE")) { auto& h = sj["shellHE"]; st.heVelocity = h.value("velocity", 550.0f); st.heDamage = h.value("damage", 120.0f); st.heRadius = h.value("radius", 2.2f); st.heCrater = h.value("crater", 1.0f); }
     if (sj.contains("shellAT")) st.atVelocity = jkey(sj, "shellAT").value("velocity", 790.0f);
     st.fireSound = sj.value("fireSound", std::string("pak_fire")); st.fixed = sj.value("fixed", false);
+    st.vent = jvec3(jkey(sj, "vent"), st.muzzle); st.fuseTip = jvec3(jkey(sj, "fuseTip"), st.vent); st.fuseTime = sj.value("fuseTime", 1.0f); st.pushSpeed = sj.value("pushSpeed", 0.9f);   // CAN1
+    st.heGravity = jkey(sj, "shellHE").value("gravity", 1.0f);
+    if (sj.contains("ball")) { auto gm = std::make_shared<GpuModel>(); std::string e; if (gm->load(contentDir() / "assets" / "models" / sj["ball"].get<std::string>(), e)) st.ballModel = gm; else logf("asset %s: ball model: %s (a trail instead)", a->id.c_str(), e.c_str()); }
     auto load = [&](const char* key, std::vector<Part>& parts, GpuMesh& mesh, vec3 pivot) {
       MeshData m;
       for (auto& pj : sj.value(key, json::array())) {
@@ -1370,8 +1373,8 @@ void AssetLibrary::build(AssetDef& ad) const {
       }
       if (a->modelFoliage) folCache[dir.string() + (turn ? "|t" : "")] = {a->model, a->modelLod};
       partRange();
-      if (mj.contains("stationRoles")) {   // part-name prefix -> station role: base / traverse / elevation / recoil
-        static const std::map<std::string, int> rn = {{"base", 0}, {"traverse", 1}, {"elevation", 2}, {"recoil", 3}};
+      if (mj.contains("stationRoles")) {   // part-name prefix -> station role: base / traverse / elevation / recoil / wheel / fuse (CAN1)
+        static const std::map<std::string, int> rn = {{"base", 0}, {"traverse", 1}, {"elevation", 2}, {"recoil", 3}, {"wheel", 4}, {"fuse", 5}};
         for (auto& p : gm->parts) {
           int role = 0;
           for (auto& [pre, rv] : jkey(mj, "stationRoles").items()) if (p.name.rfind(pre, 0) == 0) { auto f = rn.find(rv.get<std::string>()); if (f != rn.end()) role = f->second; }
