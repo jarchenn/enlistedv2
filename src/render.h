@@ -468,6 +468,7 @@ public:
     bool charVel = true;         // charvel (AIB1): soldiers write their own TAA motion (previous model matrix + previous skinned vertex); off = depth reprojection (smeared)
     bool snowFar = true;         // snowfar (BT2): applySnow's patch noise only within 120 m and its shelter tap within 150 m; off = everywhere
     bool precip = true;          // precip (W4): falling snow, blizzard spindrift, rain streaks and splashes (one path); off = none
+    bool snowCap = true;         // snowcap (TS1): a falling flake is never brighter than level snow in the same light (night: no glowing flakes); off = the fixed HDR colour (snowlit overrides)
     bool snowLit = false;        // snowlit (SV1 test): falling snow lit like level snow (main pass sun + sky) instead of a fixed HDR colour; off = fixed
     bool snowVar = true;         // snowvar (SV1): falling snow varied per flake (power-law size, speed by size, own drift, gust swirl and patches, near streaks, 1.5-8 px, more flakes); off = the W4 flakes
     bool snowTex = true;         // snowtex (SN2): the three snow sets (packed / trodden / thaw) on the ground within 60 m, edges by height; off = applySnow's flat snow
@@ -492,7 +493,7 @@ public:
               // ^ characters (gameplay): append to the line above
               : n == "hashalpha" ? &hashAlpha : n == "vegprepass" ? &vegPrepass : n == "grassprepass" ? &grassPrepass : n == "leafdrift" ? &leafDrift : n == "mossfield" ? &mossField : n == "groundmoss" ? &groundMoss : n == "contactao" ? &contactAO : n == "scatter" ? &scatter : n == "pollen" ? &pollen : n == "vegdust" ? &vegDust : n == "impostors" ? &impostors : n == "impostorbc" ? &impostorBC : n == "treepxlod" ? &treePxLod : n == "vegcascades" ? &vegCascades : n == "grasstint" ? &grassTint
               // ^ stream A (vegetation): append to the line above
-              : n == "snowfar" ? &snowFar : n == "firthin" ? &firThin : n == "snowtex" ? &snowTex : n == "precip" ? &precip : n == "snowvar" ? &snowVar : n == "snowlit" ? &snowLit
+              : n == "snowfar" ? &snowFar : n == "firthin" ? &firThin : n == "snowtex" ? &snowTex : n == "precip" ? &precip : n == "snowvar" ? &snowVar : n == "snowlit" ? &snowLit : n == "snowcap" ? &snowCap
               // ^ stream B (Blackwater snow / far firs): append to the line above
               : n == "snow" ? &snow : n == "viscull" ? &visCull : n == "kotrees" ? &koTrees : n == "kograss" ? &koGrass : n == "kofolmodels" ? &koFolModels
               // ^ stream P (performance): append to the line above
