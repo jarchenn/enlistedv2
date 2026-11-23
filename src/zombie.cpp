@@ -1068,6 +1068,15 @@ int ar1SelfCheck() {
     const int bi = enemyTypeIndex("boss_choi");
     chk((int)AiType::Boss == 46 && kAiTypeCount > 46 && std::string(aiTypeName(AiType::Boss)) == "Boss" && !Game::soldierBrain(AiType::Boss) && (bi < 0 || enemyType(bi).invuln),
         "Boss (BC1): AI type 46, melee brain; boss_choi (local-only) invulnerable"); }
+  {   // CRU1: AI type 49 Crusader: Knight 5's entry on a local-only model (Knight 5 without it), the strike on the mace's head, not in Assorted
+    int ck = enemyTypeIndex("crusader"), k5 = enemyTypeIndex("knight5"); bool ok = ck >= 0 && k5 >= 0, inMix = false; for (auto& [id, w] : zcfg().assorted) inMix = inMix || id == "crusader"; std::set<std::string> names; std::string msg = "model absent (local-only): data only";
+    if (ok) { const EnemyType& t = enemyType(ck), &k = enemyType(k5); ok = t.hp == k.hp && t.attackClips == k.attackClips && t.attackSpecs.size() == k.attackSpecs.size() && t.model == "crusader" && !inMix;
+      for (auto& x : t.attackSpecs) ok = ok && x.hasAt && glm::length(x.at) > 60.0f && glm::length(x.at) < 110.0f;
+      std::ifstream f(contentDir() / "characters" / (t.model + ".glb"), std::ios::binary); std::string g(4096, 0); f.read(g.data(), 20); uint32_t nn = 0;
+      if (f.gcount() == 20) { std::memcpy(&nn, g.data() + 12, 4); std::string js(nn, 0); f.read(js.data(), nn); json J; try { J = json::parse(js); } catch (...) {} for (auto& x : J.value("animations", json::array())) names.insert(x.value("name", std::string()));
+        std::vector<std::string> need = t.walkClips; need.push_back(t.runClip); for (auto* v : {&t.idleClips, &t.attackClips, &t.damageClips, &t.deathClips}) need.insert(need.end(), v->begin(), v->end());
+        for (auto& c : need) ok = ok && names.count(c); msg = std::to_string(names.size()) + " clips in its GLB, every one it names"; } }
+    chk(ok && (int)AiType::Crusader == 49 && std::string(aiTypeName(AiType::Crusader)) == "Crusader", "Crusader (CRU1): AI type 49, Knight 5's health and attacks, the strike on the mace's head, not in Assorted; " + msg); }
   {   // SAM1: AI type 48 Samurai: a knight in class and health, five attacks on the katana's own bone, every clip it names in the GLB
     int sk = enemyTypeIndex("samurai"), k1 = enemyTypeIndex("knight"); bool ok = sk >= 0 && k1 >= 0; std::set<std::string> names; bool inMix = false; for (auto& [id, w] : zcfg().assorted) inMix = inMix || id == "samurai";
     if (ok) { const EnemyType& t = enemyType(sk); std::ifstream f(contentDir() / "characters" / (t.model + ".glb"), std::ios::binary); std::string g((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
