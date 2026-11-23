@@ -616,6 +616,7 @@ void Fx::buildFlashes(vec3 eye, std::vector<FxVert>& add) const {
 }
 
 // ---- --check-fxev, the event and brightness assertions (spec 9.2 EVENTS / BRIGHTNESS), headless
+vec3 snowFlakeColour(vec3 base, vec3 eLevel, int mode);   // render.cpp (TS1)
 int fxEventSelfCheck(int& fails) {
   auto check = [&](bool ok, const std::string& what) { logf("[fxev] %s %s", ok ? "PASS" : "FAIL", what.c_str()); if (!ok) ++fails; };
   // envelope: energy over a 30 ms flash equal at 30 / 60 / 120 presentation rates (within one presentation frame's rounding)
@@ -691,6 +692,14 @@ int fxEventSelfCheck(int& fails) {
     g.gunSmoke(vec3(0), vec3(0, 0, 1), 0.0f, 11); const int d = live(); g.ww2Smoke = false; g.gunSmoke(vec3(0), vec3(0, 0, 1), 1.0f, 12); const int e = live();
     bool fwd = true; for (int k = 0; k < a; ++k) fwd = fwd && g.parts[k].v.z > 0.5f && g.parts[k].maxLife >= 1.0f && g.parts[k].col.a > 0.1f;
     check(a == 3 && b == 6 && c == 6 && mg >= 6 && mg <= 10 && d == e && fwd, "WS1 WW2 small-arms smoke: 3 puffs a shot, a 4th shot at once makes none (budget 6), an MG 42 second of 20 shots makes " + std::to_string(mg) + " (6 + 4 / s), drifting forward, 1 s or longer; k 0 and the switch off make none");
+  }
+  {   // TS1: falling snow never brighter than level snow in the same light: unchanged by day, the ground snow's level by night
+    const vec3 base(0.92f, 0.94f, 0.98f), lw(0.2126f, 0.7152f, 0.0722f);
+    const vec3 day = vec3(2.6f, 2.5f, 2.3f) * 0.7f / 3.14159265f + vec3(0.45f, 0.5f, 0.6f), night = vec3(0.004f, 0.0045f, 0.006f);
+    const vec3 d1 = snowFlakeColour(base, day, 1), n1 = snowFlakeColour(base, night, 1), n0 = snowFlakeColour(base, night, 0);
+    const float nl = glm::dot(n1, lw), lvl = 0.92f * glm::dot(night, lw);
+    check(glm::length(d1 - base) < 1e-5f && nl <= lvl * 1.001f && nl > 0.0f && glm::length(n0 - base) < 1e-6f && glm::dot(n0, lw) > 100.0f * lvl,
+          "TS1 snowcap: a flake keeps its colour by day, by night it is no brighter than level snow (" + std::to_string(nl) + " vs the old fixed " + std::to_string(glm::dot(n0, lw)) + ", " + std::to_string(glm::dot(n0, lw) / std::max(1e-9f, lvl)) + "x the ground snow)");
   }
   return fails;
 }

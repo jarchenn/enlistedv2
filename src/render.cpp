@@ -6324,6 +6324,18 @@ void Renderer::drawFolModels(bool depth, const mat4& vp, const Frustum* fr, floa
   glEnable(GL_CULL_FACE);
 }
 
+// TS1 (the user: "weird shit in trees" at night): falling snow was drawn at a fixed HDR white (0.92), lit by nothing; by night
+// (level key ~0.005, the meter's ceiling 10) every flake blew out to pure white, read as glitter on the dark crowns behind
+// them. mode 0: that fixed colour; 1 (snowcap, default): the fixed colour, but no brighter than snow lying in the same light
+// (0.92 x eLevel, eLevel the main pass's sun / pi + sky on a level surface): by day unchanged, by night the ground snow's
+// brightness; 2 (snowlit): lit like the level snow outright
+vec3 snowFlakeColour(vec3 base, vec3 eLevel, int mode) {
+  if (mode == 2) return base * eLevel;
+  if (mode == 0) return base;
+  const vec3 lw(0.2126f, 0.7152f, 0.0722f); const float flake = glm::dot(base, lw), level = 0.92f * glm::dot(glm::max(eLevel, vec3(0)), lw);
+  return flake > level && flake > 0 ? base * (level / flake) : base;
+}
+
 void Renderer::drawModels(const std::vector<ModelDraw>& items, const Frustum* fr) {
   GLuint p = progModel;
   const DrawLocs L = drawLocs(p);
@@ -7409,6 +7421,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
       glDrawArraysInstanced(GL_TRIANGLES, 0, 6, nearN + farN);
     };
     const float qs = q.snowfallScale;   // Low 0.4, Medium 0.75, High 1 (the sky quality)
+    const vec3 eLevel = lastSunCol * std::max(sunDir.y, 0.0f) / 3.14159265f + lastSkyCol;   // a level white surface's light (the main pass's sun and sky)
     if (lt.mapSnowfall || wxSnow) {     // SF1 snowfall (look.snowfall) / Light snow / Blizzard
       const bool blizzard = wxSnow && wx.st.precipMmH >= 3.0f;
       const float sfN = lt.mapSnowfall ? lt.sfNear : 0.0f, sfF = lt.mapSnowfall ? lt.sfFar : 0.0f;
@@ -7419,8 +7432,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
       const float vN = perf.snowVar ? 3.0f : 1.0f, vF = perf.snowVar ? 1.5f : 1.0f;   // SV1: a map's own snowfall (look.snowfall) x3 / x1.5 for the smaller flakes
       vec3 sc = vec3(0.92f, 0.94f, 0.98f) * (lt.mapSnowfall ? lt.sfBright : 1.0f);
       const vec3 lw(0.2126f, 0.7152f, 0.0722f);
-      const vec3 eLevel = lastSunCol * std::max(sunDir.y, 0.0f) / 3.14159265f + lastSkyCol;   // a level white surface's light (the main pass's sun and sky)
-      if (perf.snowLit) sc *= eLevel;   // SV1 snowlit (test): flakes lit like the snow on the ground, not a fixed HDR value
+      sc = snowFlakeColour(sc, eLevel, perf.snowLit ? 2 : perf.snowCap ? 1 : 0);   // SV1 snowlit (test): lit like level snow; TS1 snowcap: never brighter than it
       const int nN = (int)(std::max(sfN * vN, wN) * qs), nF = (int)(std::max(sfF * vF, wF) * qs);
       // SV1 log: one line when the pass starts or its preset / counts change, and again 3 s later (alpha from the shader's own count)
       static int lastKey = -1; static float statAt = -1.0f; static bool statLate = false;
@@ -7449,7 +7461,7 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     if (wxRainy) {   // rain: streaks, and splashes on whatever top surface is under them
       const float rate = wx.st.precipMmH, share = std::clamp(0.25f + rate / 12.0f, 0.25f, 1.2f);
       const float fall = wx.st.precip == WxDrizzle ? 3.5f : rate > 25.0f ? 8.5f : 7.5f;
-      const vec3 rc = vec3(0.55f, 0.58f, 0.62f);
+      const vec3 rc = snowFlakeColour(vec3(0.55f, 0.58f, 0.62f), eLevel, perf.snowCap ? 1 : 0);   // TS1: rain streaks and splashes are not lamps either (no brighter than level snow in this light)
       draw(1, (int)(8000 * share * qs / 0.75f * 0.75f), (int)(8000 * share * qs), 9.0f, 30.0f, fall, wWx, accR, rc);
       const float splash = std::clamp(rate / 10.0f, 0.2f, 1.0f) * std::max(wx.st.puddle, 0.4f);
       if (wx.st.precip == WxRain) draw(2, (int)(1000 * splash * qs), 0, 12.0f, 12.0f, 0.0f, wWx, accR, rc * 1.2f);
