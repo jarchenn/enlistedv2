@@ -10,7 +10,7 @@ A = sys.argv[sys.argv.index('--') + 1:]; SRC, OUT = A[:2]
 bpy.ops.wm.read_factory_settings(use_empty=True); bpy.ops.import_scene.gltf(filepath=SRC)
 for o in list(bpy.data.objects):
     if o.name.startswith('Icosphere'): bpy.data.objects.remove(o, do_unlink=True)
-base = lambda n: re.sub(r'_\d{2,6}$', '', n)
+base = lambda n: re.sub(r'_\d{3,6}$', '', n)   # the export's numbering (3+ digits), not MetaHuman's own _01 / _02
 arms = [o for o in bpy.data.objects if o.type == 'ARMATURE']; main = arms[0]
 for a in arms:
     for b in a.data.bones: b.name = base(b.name)
@@ -20,6 +20,53 @@ for o in meshes:   # renaming a bone renames its groups already: only the ones s
     for vg in o.vertex_groups:
         if vg.name not in allbones: vg.name = base(vg.name)
 helm = [o for o in meshes if not any(m.type == 'ARMATURE' for m in o.modifiers)]   # the rigid helmet: weighted to the head once the T-pose is the rest pose (below)
+# stray weights (the heavy armour's belt straps carry arm weights in the source): a vertex weighted to an arm joint but over 0.35 m
+# from that arm (shoulder to fingertips) gives that weight to the pelvis, so the T-pose does not drag it along
+ARMK = ('clavicle', 'upperarm', 'lowerarm', 'hand', 'wrist', 'thumb', 'index', 'middle', 'ring', 'pinky', 'metacarpal')
+fixed = 0
+for o in [o for o in meshes if o.find_armature()]:
+    a_ = o.find_armature(); AW_ = a_.matrix_world; bj = {b.name: AW_ @ b.head_local for b in a_.data.bones}
+    side_pts = {}
+    for sd in ('l', 'r'): side_pts[sd] = [p_ for n_, p_ in bj.items() if n_.endswith('_' + sd) and any(k in n_ for k in ARMK)]
+    gi = {g.index: g.name for g in o.vertex_groups}; pel = o.vertex_groups.get('pelvis') or o.vertex_groups.new(name='pelvis'); mw = o.matrix_world
+    for v in o.data.vertices:
+        p_ = mw @ v.co
+        for g_ in list(v.groups):
+            nm = gi.get(g_.group, '')
+            if g_.weight <= 0 or not any(k in nm for k in ARMK) or not (nm.endswith('_l') or nm.endswith('_r')): continue
+            body = any(gi.get(h.group, '').startswith(('spine', 'pelvis', 'thigh')) and h.weight > 0.05 for h in v.groups)
+            lower = any(k in nm for k in ('lowerarm', 'hand', 'wrist', 'thumb', 'index', 'middle', 'ring', 'pinky', 'metacarpal'))
+            if min((p_ - q).length for q in side_pts[nm[-1]]) > 0.35 or (body and lower):   # far from the arm, or a body piece the hand brushes
+                pel.add([v.index], g_.weight, 'ADD'); o.vertex_groups[g_.group].remove([v.index]); fixed += 1
+print('STRAY arm weights moved to the pelvis:', fixed)
+# a loose piece of a garment that is mostly body-weighted (a belt end) but partly on a forearm or hand: all of it on the body
+import bmesh
+LOWER = ('lowerarm', 'hand', 'wrist', 'thumb', 'index', 'middle', 'ring', 'pinky', 'metacarpal')
+moved = 0
+for o in [o for o in meshes if o.find_armature()]:
+    gi = {g.index: g.name for g in o.vertex_groups}; pel = o.vertex_groups.get('pelvis') or o.vertex_groups.new(name='pelvis')
+    bm = bmesh.new(); bm.from_mesh(o.data); bm.verts.ensure_lookup_table(); seen = set()
+    for v0 in bm.verts:
+        if v0.index in seen: continue
+        isl, st = [], [v0]; seen.add(v0.index)
+        while st:
+            x = st.pop(); isl.append(x.index)
+            for e in x.link_edges:
+                y = e.other_vert(x)
+                if y.index not in seen: seen.add(y.index); st.append(y)
+        body = low = 0.0
+        for i in isl:
+            for g_ in o.data.vertices[i].groups:
+                nm = gi.get(g_.group, '')
+                if nm.startswith(('spine', 'pelvis', 'thigh')): body += g_.weight
+                elif any(k in nm for k in LOWER): low += g_.weight
+        if low > 0 and body > 2 * low:
+            for i in isl:
+                for g_ in list(o.data.vertices[i].groups):
+                    nm = gi.get(g_.group, '')
+                    if any(k in nm for k in LOWER) and g_.weight > 0: pel.add([i], g_.weight, 'ADD'); o.vertex_groups[g_.group].remove([i]); moved += 1
+    bm.free()
+print('STRAY loose body pieces: %d hand / forearm weights moved to the pelvis' % moved)
 # T-pose on every armature (the meshes follow their own), each bone aimed head -> next head
 CH = {('upperarm_l', 'lowerarm_l', 'hand_l', 'middle_01_l'): Vector((1, 0, 0)), ('upperarm_r', 'lowerarm_r', 'hand_r', 'middle_01_r'): Vector((-1, 0, 0))}
 for a in arms:
@@ -37,6 +84,24 @@ for o in meshes:
     for m in [m for m in o.modifiers if m.type == 'ARMATURE']: bpy.ops.object.modifier_apply(modifier=m.name)
     mw = o.matrix_world.copy(); o.parent = None; o.matrix_world = mw
     bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+# a small loose piece left far from the body below the shoulders after the bake (the heavy armour's belt end): removed
+import bmesh
+gone = 0
+for o in meshes:
+    bm = bmesh.new(); bm.from_mesh(o.data); bm.verts.ensure_lookup_table(); seen = set(); kill = []
+    for v0 in bm.verts:
+        if v0.index in seen: continue
+        isl, st = [], [v0]; seen.add(v0.index)
+        while st:
+            x = st.pop(); isl.append(x)
+            for e in x.link_edges:
+                y = e.other_vert(x)
+                if y.index not in seen: seen.add(y.index); st.append(y)
+        far = [v for v in isl if (v.co.x ** 2 + v.co.y ** 2) ** 0.5 > 0.6 and v.co.z < 1.2]
+        if far and len(isl) < 500: kill += isl
+    if kill: bmesh.ops.delete(bm, geom=kill, context='VERTS'); bm.to_mesh(o.data); gone += len(kill)
+    bm.free()
+print('LOOSE pieces removed:', gone, 'vertices')
 bpy.ops.object.select_all(action='DESELECT'); bpy.context.view_layer.objects.active = main; main.select_set(True)
 bpy.ops.object.mode_set(mode='POSE'); bpy.ops.pose.select_all(action='SELECT'); bpy.ops.pose.armature_apply(selected=False); bpy.ops.object.mode_set(mode='OBJECT')
 mw = main.matrix_world.copy(); main.parent = None; main.matrix_world = mw

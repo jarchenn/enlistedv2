@@ -11,3 +11,10 @@ From DevonLux's "5 Piece Platemail - MetaHuman (rigged)" and HASSAN's "guts swor
 6. `gltf_prune.py`, `tools/enemies/elk/tex_shrink.py` (2048 px) -> `content/characters/paladin.glb`.
 
 `tpose.py`: the T-posed, unrigged FBX for a Mixamo upload (not used by the game).
+
+## PK2: Paladin 2 (AI type 52; the heavy armour)
+
+`fbx_to_glb.py` (the FBX with its textures relinked by file name; the MetaHuman face under the closed helm dropped), then the steps
+above. `rig_platemail.py` also moves stray arm weights of body garments to the pelvis and removes a small loose piece left far from
+the body after the bake (the heavy armour's belt end). `hilt.py` prints the sword's guard and pommel (bind space) for `grip_check.py`
+and `ik_left.py`. The model is local-only (git-ignored) until its licence is confirmed.

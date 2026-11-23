@@ -292,6 +292,7 @@ void Game::setupSlotSoldier(const RosterSlot& rs, AiType ait, int variant, int& 
             : ait == AiType::Crusader ? std::max(0, enemyTypeIndex(fs::exists(contentDir() / "characters" / "crusader.glb") ? "crusader" : "knight5"))   // CRU1: Knight 5 were its model missing
             : ait == AiType::Samurai ? std::max(0, enemyTypeIndex("samurai"))   // SAM1
             : ait == AiType::Paladin ? std::max(0, enemyTypeIndex("paladin"))   // PK1
+            : ait == AiType::Paladin2 ? std::max(0, enemyTypeIndex(fs::exists(contentDir() / "characters" / "paladin_2.glb") ? "paladin2" : "paladin"))   // PK2: its model is local-only: the Paladin without it
             : ait == AiType::ElkKnight ? std::max(0, enemyTypeIndex(fs::exists(contentDir() / "characters" / "knight_10_elk.glb") && fs::exists(contentDir() / "characters" / "knight_10_elk_foot.glb") ? "knight10e" : "knight10m"))   // EK: the Mounted Knight without its two models
             : ait == AiType::Boss ? std::max(0, enemyTypeIndex(fs::exists(contentDir() / "characters" / "boss_choi.glb") ? "boss_choi" : "brute"))   // BC1: the boss is local-only: the Brute without it
             : ait == AiType::Dragon ? std::max(0, enemyTypeIndex("dragon"))   // DR1: the Mountain Dragon, ground only
