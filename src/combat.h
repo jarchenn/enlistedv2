@@ -47,6 +47,7 @@ struct WeaponDef {
   bool breathe = true;                  // GR14 JSON "breathe": false = no idle breathing sway at all (the Garand: the user's still aim; the mouse look's sway stays)
   float smoke = 1;                      // WS1 JSON "smoke": the WW2 firing smoke (Fx::gunSmoke, fx.json "smallArms") x this; default 1 for a period gun, 0 modern / blaster
   bool modern = false;                  // MG1: JSON "modern" (side "modern"): only from the modern weapons case, never in 1944 loadouts / classes / bot pools
+  float ejectBack = -1;   // WS2 JSON "ejectPort_m": the ejection port this far behind the muzzle along the bore (default, < 0: 0.68 x the muzzle's z, the receiver of a rifle)
   bool casings = true;   // MG12: false = no case ejected per shot (revolver, break-action shotgun)
   vec3 holdOffset{0}; float holdWeld = 1; int holdKind = -1; int leftHold = 0; GripPose gripPose;   /* WS1 JSON hold.left: "magazine" = 1: the support hand grips the magazine (palm to the right, fingers forward round it) instead of lying under the handguard */   // SW2 JSON "hold": third-person hold: offset (chest frame m: x left, y up, z forward) of the shouldered / low-ready weapon, cheek-weld share, kind 0 pistol / 1 rifle / 2 launcher (-1: by the grip)
   bool dotCrosshair = false;   // SW2 JSON "crosshair": "dot": a small white dot in a thin + (hip and zoom aim)
@@ -202,6 +203,7 @@ struct FxEvent {
   int recipe = FXR_SMALL; vec3 pos{0}, dir{0, 0, 1}, normal{0, 1, 0}; std::string surface; uint32_t seed = 0; int owner = -1;
   std::string weapon, caliber, device = "none";   // small arms / heavy: weapons.json id or the def's caliber text; muzzle device
   vec3 light{0}; float groundY = -1e9f; bool evacuator = false; float scale = 1; vec3 tint{-1};
+  bool visFloor = false;   // WS2: a period small arm: the flash at least fx.json smallArms flashMinYref x Yref and flashMinLife long (the user: every shot shows a flash)
 };
 struct Fx {
   std::deque<Particle> parts;   // weather corpus 7: at the cap the oldest goes in O(1) (was vector::erase(begin): O(N) per spawn)
@@ -218,6 +220,9 @@ struct Fx {
   void blasterImpact(vec3 p, vec3 n, int kind);   // SW1: a bolt striking a surface: coloured flash, sparks, a scorch puff, a brief light
   void smoke(vec3 p, vec3 v, float size, float life, vec4 col, float grow = 1.2f, float lift = 0.6f);
   void gunSmoke(vec3 p, vec3 dir, float k, int gun);   // WS1: a WW2 small arm's firing smoke (fx.json "smallArms"), k the weapon's "smoke"; gun: one rate budget per shooter
+  struct CaseEl { Debris d; int kind = 0; };   // WS2: a spent case (kind 0, brass) or a thrown en-bloc clip (1, steel), drawn by App with caseMesh / clipMesh
+  std::vector<CaseEl> cases;
+  void ejectCase(vec3 p, vec3 v, int kind = 0);
   std::unordered_map<int, vec2> smokeBudget;          // WS1: gun -> (puffs it may still make, clock when last topped up)
   void flash(vec3 p, float size, float life, vec4 col);
   void streak(vec3 a, vec3 b, float width, float life, vec4 col);
@@ -231,7 +236,7 @@ struct Fx {
   // WP4 small-arms muzzle flash, once per shot: a yellow-orange core and 4-6 orange flame petals along the bore
   // (20-40 ms, randomised), plus a warm point light at `light` (world muzzle; the player's flash is drawn at the
   // viewmodel's apparent muzzle). suppressed: a faint core, no light
-  void muzzleFlash(vec3 p, vec3 dir, float scale, bool suppressed, vec3 light, vec3 tint = vec3(-1), const char* caliber = nullptr, const char* device = nullptr);   // fxev: caliber = the def's text, device "brake" / "flash_hider" / ...
+  void muzzleFlash(vec3 p, vec3 dir, float scale, bool suppressed, vec3 light, vec3 tint = vec3(-1), const char* caliber = nullptr, const char* device = nullptr, bool visFloor = false);   // fxev: caliber = the def's text, device "brake" / "flash_hider" / ...
   void muzzleFireball(vec3 p, vec3 dir, float scale, bool suppressed, vec3 light, const char* caliber = nullptr, const char* device = nullptr);   // DF1: a small hot core, a warm ball just ahead, a long ragged tongue along the bore (one or two frames)   // SW1 tint: a blaster's colour (x < 0: the flash look)
   struct MuzzleLight { vec3 p{0}; float age = 0, life = 0.035f, k = 1; uint32_t id = 0; vec3 col{-1}; };   // SW1 col: own colour (x < 0: the flash look's)
   std::vector<MuzzleLight> mlights; uint32_t mlightSerial = 0;

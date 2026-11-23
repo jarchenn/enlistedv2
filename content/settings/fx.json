@@ -1,19 +1,32 @@
 {
   "_doc": "Firing smoke of tank guns, the PaK 40 and the Flak 18 (Fx::muzzle) and the launcher backblast (Fx::backblast). Read once at start-up by fx.cpp (docs/settings.md#firing-smoke). Sizes scale with the gun's muzzleScale (vehicle JSON gun.muzzleScale, station muzzleScale). Alpha fades as (life left)^fadePow after a quick fade-in. Before 2026-11 the discharge left 20 puffs at alpha 0.5-0.55 living 3-5 s.",
   "smallArms": {
-    "_doc": "WS1 (the user: intensify muzzle smoke for WW2 guns): each shot of a WW2 small arm (weapon json smoke, default 1; modern and blaster guns 0) leaves puffs x smoke at the muzzle, drifting forward and slowing (drag), growing, fading as (life left)^fadePow. Sized against the user's Garand reference (docs/garand_ads_fire_reference.md, tools/gr1/smoke_measure.py: about 0.35 peak opacity, lingering through the 0.6 s to the next shot). Each gun has a budget of perGunBurst puffs topped up at perGunPuffsPerSecond, so automatic fire keeps a thin stream, not a wall. Perf switch ww2smoke.",
-    "puffs": 3,
-    "size": 0.13,
-    "alpha": 0.24,
-    "life": [1.2, 2.2],
-    "speed": [1.2, 3.0],
-    "grow": 0.9,
-    "lift": 0.15,
-    "drag": 2.5,
-    "fadePow": 1.3,
-    "perGunPuffsPerSecond": 4,
-    "perGunBurst": 6,
-    "colour": [0.63, 0.61, 0.58]
+      "_doc": "WS1 / WS2 (the user: intensify muzzle smoke for WW2 guns; then: an oblong cone from the barrel, a flash on every shot): each shot of a WW2 small arm (weapon json smoke, default 1; modern, blaster, launcher and flame guns 0) leaves puffs x smoke AT the muzzle, each along the bore within spreadDeg, the later ones faster (speed) and larger, so the cloud strings out forward (about 0.4-1.4 m before drag stops it) and widens; sprites stretch along their drift; then rise (lift), grow and fade as (life left)^fadePow. Sized against the user's Garand reference (docs/garand_ads_fire_reference.md). Each gun has a budget of perGunBurst puffs topped up at perGunPuffsPerSecond, so automatic fire keeps a thin stream, not a wall. flashMinYref / flashMinLife: a period gun's flash core at least this x Yref (the disc half, the vortex a quarter) and this long, so it shows in daylight and at 60 fps for 3 frames; night flashes are above it. Perf switch ww2smoke (the smoke).",
+      "puffs": 5,
+      "size": 0.1,
+      "alpha": 0.22,
+      "life": [
+          1.2,
+          2.2
+      ],
+      "speed": [
+          1.0,
+          3.5
+      ],
+      "spreadDeg": 5,
+      "grow": 0.9,
+      "lift": 0.15,
+      "drag": 2.5,
+      "fadePow": 1.3,
+      "perGunPuffsPerSecond": 7,
+      "perGunBurst": 10,
+      "colour": [
+          0.63,
+          0.61,
+          0.58
+      ],
+      "flashMinYref": 6,
+      "flashMinLife": 0.05
   },
   "muzzle": {
     "flashSize": 1.4,
