@@ -68,7 +68,7 @@ bool Match::setupDeathmatch(int humans, std::string& err) {
   int peer = 0;
   for (int t = 0; t < (solo ? 1 : 2); ++t)
     for (int k = 0; k < counts[t]; ++k) {
-      RosterSlot r; r.id = (int)slots.size(); r.livesLeft = royale ? 1 : -1; r.lane = LANE_MAIN;   // BR1: one life, no respawn
+      RosterSlot r; r.id = (int)slots.size(); r.livesLeft = royale || (rules.noRespawn && rules.mode == GameMode::TDM) ? 1 : -1; r.lane = LANE_MAIN;   // BR1: one life, no respawn
       r.role = t == 0 ? CombatRole::Defender : CombatRole::Attacker;
       r.team = solo ? r.id : t;
       r.faction = royale ? rules.teamFaction[0] : solo ? (k % 2 == 0 ? rules.teamFaction[0] : rules.teamFaction[1]) : rules.teamFaction[t];   // BR5: one side's kit for all (one body, royale.cpp)
@@ -207,7 +207,15 @@ void Match::update(float dt) {
       result = std::string(factionName(rules.teamFaction[t])) + " (team " + (t == 0 ? "A" : "B") + ") reached " + std::to_string(rules.killCap) + " kills";
       log("result: " + result); return;
     }
-    for (auto& s : slots) if (!s.alive && !s.pending && s.deadFor >= rules.respawnDelay) { s.pending = true; ++rev; }
+    if (rules.mode == GameMode::TDM && rules.noRespawn) {   // one life each: a team with nobody left loses
+      int in[2] = {0, 0}; for (auto& s : slots) if (s.team >= 0 && s.team < 2) in[s.team] += s.alive || (!s.everSpawned && s.livesLeft != 0);
+      if (!in[0] || !in[1]) {
+        phase = MatchPhase::Ended; winner = in[0] ? Winner::Defenders : in[1] ? Winner::Attackers : Winner::None;
+        result = winner == Winner::None ? "nobody survived" : std::string(factionName(rules.teamFaction[in[0] ? 0 : 1])) + " (team " + (in[0] ? "A" : "B") + ") is the last team standing";
+        log("result: " + result); return;
+      }
+    }
+    for (auto& s : slots) if (!s.alive && !s.pending && s.livesLeft != 0 && s.deadFor >= rules.respawnDelay) { s.pending = true; ++rev; }
     return;
   }
   // ---- capture (active objective only; later points stay locked even if occupied)

@@ -151,6 +151,7 @@ struct ScenarioRules {
   int humanTeam = 0;              // TDM: the host's team (LAN joiners balance the teams)
   Faction teamFaction[2] = {Faction::Allies, Faction::Axis};  // TDM / Solo uniforms
   float respawnDelay = 4.0f;      // Solo / TDM: s from death to respawn
+  bool noRespawn = false;         // TDM: one life each; the team with someone left wins
   bool lootModern = false;        // Battle Royale: floor guns from the modern list (else WW2) (loot.cpp)
   std::vector<std::string> allowedClasses;   // GM1: class ids the host allows (empty = every class)
   bool classAllowed(const std::string& id) const { for (auto& c : allowedClasses) if (c == id) return true; return allowedClasses.empty(); }

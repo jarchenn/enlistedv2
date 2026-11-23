@@ -71,6 +71,15 @@ void headless() {
     m.update(1.0f / 60);
     chk(m.phase == MatchPhase::Ended && m.winner == Winner::Defenders, "TDM: team A reaches the kill cap of 3 and wins (%s)", m.result.c_str());
   }
+  {   // no respawns: one life each, the last team standing wins
+    Scenario sc; sc.rules = dmRules(GameMode::TDM); sc.rules.teamPlayers[0] = sc.rules.teamPlayers[1] = 2; sc.rules.killCap = 99; sc.rules.noRespawn = true; sc.rules.respawnDelay = 1.0f;
+    Match m; std::string err; m.setup(sc, 0, err); m.start();
+    for (auto& s : m.slots) { s.pending = false; s.alive = true; s.everSpawned = true; s.livesLeft = 0; }
+    m.onDeath(2, 0); for (int k = 0; k < 180; ++k) m.update(1.0f / 60);
+    chk(m.phase != MatchPhase::Ended && !m.slots[2].pending, "TDM no respawns: a dead soldier stays dead and the match goes on");
+    m.onDeath(3, 0); m.update(1.0f / 60);
+    chk(m.phase == MatchPhase::Ended && m.winner == Winner::Defenders, "TDM no respawns: team A is the last team standing (%s)", m.result.c_str());
+  }
   {
     Scenario sc; sc.rules = dmRules(GameMode::Solo); sc.rules.soloPlayers = 4; sc.rules.killCap = 2; sc.rules.respawnDelay = 1.0f;
     Match m; std::string err; m.setup(sc, 0, err); m.start();

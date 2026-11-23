@@ -57,7 +57,7 @@ json ScenarioRules::toJson() const {
           {"royalePlayers", royalePlayers}, {"lootModern", lootModern},
           {"soloPlayers", soloPlayers}, {"teamPlayers", {teamPlayers[0], teamPlayers[1]}}, {"aiTypes", {aiTypes[0], aiTypes[1]}},
           {"aiCount", {std::vector<int>(aiCount[0], aiCount[0] + kAiTypeCount), std::vector<int>(aiCount[1], aiCount[1] + kAiTypeCount)}}, {"heavyTrollPct", {heavyTrollPct[0], heavyTrollPct[1]}},
-          {"humanTeam", humanTeam}, {"teamFaction", {factionName(teamFaction[0]), factionName(teamFaction[1])}}, {"respawnDelay_s", respawnDelay}, {"allowedClasses", allowedClasses}};
+          {"humanTeam", humanTeam}, {"teamFaction", {factionName(teamFaction[0]), factionName(teamFaction[1])}}, {"respawnDelay_s", respawnDelay}, {"noRespawn", noRespawn}, {"allowedClasses", allowedClasses}};
 }
 
 ScenarioRules ScenarioRules::fromJson(const json& j, int version) {
@@ -111,6 +111,7 @@ ScenarioRules ScenarioRules::fromJson(const json& j, int version) {
   if (j.contains("teamFaction") && j["teamFaction"].is_array() && j["teamFaction"].size() == 2)
     for (int t = 0; t < 2; ++t) r.teamFaction[t] = j["teamFaction"][t].get<std::string>() == "Axis" ? Faction::Axis : Faction::Allies;
   r.respawnDelay = std::clamp(j.value("respawnDelay_s", r.respawnDelay), 0.0f, 30.0f);
+  r.noRespawn = j.value("noRespawn", r.noRespawn);
   if (j.contains("allowedClasses") && j["allowedClasses"].is_array()) for (auto& c : j["allowedClasses"]) if (c.is_string()) r.allowedClasses.push_back(c.get<std::string>());
   // clamp to the limits (setup UI enforces the same)
   r.defenderSlots = std::clamp(r.defenderSlots, 1, kMaxCombatants - 1);

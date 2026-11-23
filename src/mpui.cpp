@@ -539,6 +539,7 @@ void MpUi::setupWindow(App& app) {
     } else if (rules.mode != GameMode::Assault) {
       ImGui::Text("Kill cap (wins the match):"); ImGui::SameLine(); intField("##killcap", rules.killCap, 1, 100000);
       ImGui::SliderFloat("Respawn delay (s)", &rules.respawnDelay, 1, 15, "%.0f");
+      if (rules.mode == GameMode::TDM) ImGui::Checkbox("No respawns (one life each; last team standing wins)", &rules.noRespawn);
       ImGui::SliderInt("Frag grenades per life", &rules.fragPerLife, 0, 4);
       if (rules.mode != GameMode::Solo) ImGui::Checkbox("Friendly fire (bullets and blasts hurt your own team)", &rules.friendlyFire);
       aiDifficultyCombo();
