@@ -72,7 +72,7 @@ bool Game::sandboxBegin(std::string& err) {
   if (!loadData(err) || !ensureModels(err)) return false;
   match = Match{};
   match.rules.mode = GameMode::TDM; match.rules.killCap = 1 << 30; match.rules.respawnDelay = 1e9f;   // no win, no respawn
-  match.slots.reserve(ScenarioRules::kMaxAI); sold.clear(); sold.reserve(ScenarioRules::kMaxAI);    // never reallocated while spawning
+  match.slots.reserve(ScenarioRules::kMaxAI); for (auto& s : sold) if (s.ciReady) { s.ci.destroy(); s.ciReady = false; } sold.clear(); sold.reserve(ScenarioRules::kMaxAI);    // never reallocated while spawning
   localSlot = -1; pendingLocal = -1; isClient = false; pendingStart = false; paused = false;
   app.syncRuntime();   // bodies placed since the load
   const vec3 hv(app.terrain.buildHalfX, app.terrain.buildHalf, app.terrain.buildHalfZ);

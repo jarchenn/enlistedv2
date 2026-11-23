@@ -95,8 +95,9 @@ std::string vramLine() {
   glGetIntegerv(0x9047, &ded); glGetIntegerv(0x9048, &tot); glGetIntegerv(0x9049, &avail); glGetIntegerv(0x904A, &evN); glGetIntegerv(0x904B, &evKB);
   while (glGetError() != GL_NO_ERROR) {}
   const double M = 1048576.0; char b[512];
-  std::snprintf(b, sizeof b, "[vram] GPU %s in use %.0f of %.0f MB, evictions %d (%.0f MB); characters: %d instances %.1f MB, %d types %.1f MB geometry + %.1f MB textures",
-                ded ? "(NVX)" : "(no NVX)", (tot - avail) / 1024.0, ded / 1024.0, evN, evKB / 1024.0, gCharBytes.nInst, gCharBytes.inst / M, gCharBytes.nType, gCharBytes.type / M, gCharBytes.tex / M);
+  (void)evKB;   // the driver's evicted total is cumulative since boot and overflows its 32-bit KB field: only the count is printed (its change between lines is the signal)
+  std::snprintf(b, sizeof b, "[vram] GPU %s in use %.0f of %.0f MB, evictions %u; characters: %d instances %.1f MB, %d types %.1f MB geometry + %.1f MB textures",
+                ded ? "(NVX)" : "(no NVX)", (tot - avail) / 1024.0, ded / 1024.0, (unsigned)evN, gCharBytes.nInst, gCharBytes.inst / M, gCharBytes.nType, gCharBytes.type / M, gCharBytes.tex / M);
   return b;
 }
 // V0b: every live GL texture, buffer and renderbuffer (ids scanned up to NMK_VRAM_SCAN, default 300000), their bytes by

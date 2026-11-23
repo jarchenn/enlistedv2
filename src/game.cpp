@@ -216,6 +216,7 @@ bool Game::begin(std::string& err) {
   lo = glm::max(lo, -hv); hi = glm::min(hi, hv);
   if (!isClient) aiMatchBegin(*this, lo, hi);   // W6: navmesh bake (Recast/Detour) and AI setup
   // soldiers per roster slot
+  for (auto& s : sold) if (s.ciReady) { s.ci.destroy(); s.ciReady = false; }   // V0c: a match begun over one not ended frees the old skins first
   sold.clear(); sold.resize(match.slots.size());
   int aiGiven[2][kAiTypeCount] = {}, kindSeen[kAiTypeCount] = {}, germanSeen = 0;   // per side / per AI type: types and model variants go round in turn (same on LAN clients)
   if (const char* at = std::getenv("NMK_AI_TYPES")) {   // SW1 dev: NMK_AI_TYPES=<side 0 type>,<side 1 type> (AiType numbers): every AI of that side that type

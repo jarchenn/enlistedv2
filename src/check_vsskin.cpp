@@ -19,14 +19,17 @@ std::vector<mat4> palette(int J, unsigned seed) {
   return S;
 }
 void testModel(const std::string& id, GLuint prog) {
+  const CharGpuBytes b0 = gCharBytes;   // before the load: destroying the model at the end takes its type and texture bytes away again
   CharModel m; std::string err;
   if (!m.load(contentDir() / "characters" / (id + ".glb"), err) && !m.load(contentDir() / "characters" / (id + ".glb"), err, 0, false)) { chk(false, id + ": load " + err); return; }
   const int V = (int)m.verts.size(), J = m.joints();
-  const CharGpuBytes b0 = gCharBytes;
+  chk(gCharBytes.nType - b0.nType == 1 && gCharBytes.type - b0.type == (long long)m.gpuBytesType && gCharBytes.tex - b0.tex == (long long)m.gpuBytesTex,
+      id + ": the type counted once (" + std::to_string(m.gpuBytesType >> 10) + " KB geometry, " + std::to_string(m.gpuBytesTex >> 10) + " KB textures)");
+  const CharGpuBytes b1 = gCharBytes;
   CharInstance A, B; A.create(m, false); B.create(m, true);
   chk(B.vs && B.view.skinJ == J && B.view.vbo == 0, id + ": the vsskin instance has no vertex buffer");
   const long long want = (long long)A.gpuBytes + (long long)B.gpuBytes;
-  chk(gCharBytes.inst - b0.inst == want && gCharBytes.nInst - b0.nInst == 2 && B.gpuBytes == 2 * (size_t)J * sizeof(mat4) && A.gpuBytes == (size_t)V * 64 + (size_t)J * 64,
+  chk(gCharBytes.inst - b1.inst == want && gCharBytes.nInst - b1.nInst == 2 && B.gpuBytes == 2 * (size_t)J * sizeof(mat4) && A.gpuBytes == (size_t)V * 64 + (size_t)J * 64,
       id + ": bytes compute " + std::to_string(A.gpuBytes) + ", vsskin " + std::to_string(B.gpuBytes) + " (" + std::to_string(V) + " verts, " + std::to_string(J) + " joints)");
   GLuint tf; glCreateBuffers(1, &tf); glNamedBufferStorage(tf, (size_t)V * 12 * 4, nullptr, 0);
   glUseProgram(prog);
@@ -57,7 +60,9 @@ void testModel(const std::string& id, GLuint prog) {
     chk(ep < 1e-4 && epp < 1e-4 && en < 1e-3 && eu == 0 && A.prevValid == B.prevValid, w);
   }
   glUniform1i(lsk, 0); glUseProgram(0); glDeleteBuffers(1, &tf);
-  A.destroy(); B.destroy(); m.destroy();
+  A.destroy(); B.destroy();
+  chk(gCharBytes.inst == b1.inst && gCharBytes.nInst == b1.nInst, id + ": destroying the two instances returns their bytes");
+  m.destroy();
   chk(gCharBytes.inst == b0.inst && gCharBytes.nInst == b0.nInst && gCharBytes.type == b0.type && gCharBytes.tex == b0.tex, id + ": the counters return to where they were");
 }
 }
