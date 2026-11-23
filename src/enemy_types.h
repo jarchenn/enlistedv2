@@ -83,7 +83,8 @@ const std::vector<EnemyType>& enemyTypes();          // never empty (the plain z
 const EnemyType& enemyType(int k);                   // clamped
 int enemyTypeIndex(const std::string& id);          // -1: no such type
 int enemyTypeNpcPick(uint32_t seed);                // NPC1 AI type Civilians: one of the types with json "npc" (fight or flee), in turn by slot
-int npcReact(int npc, float hpAfter, float hpMax, float fightShare);   // NPC1: 1 fight back, 2 flee, 0 nothing (npc 0)
+int npcReact(int npc, float hpAfter, float hpMax, float fightShare);
+bool npcFleesKill(const struct Soldier& o, int victim, int killer);   // NPC8: a civilian who sees `victim` killed by `killer` runs (fight and flee kinds)   // NPC1: 1 fight back, 2 flee, 0 nothing (npc 0)
 int enemyTypeAssortedPick(uint32_t seed);           // AK1 AI type Assorted Knights: zombie.json "assorted" by weight (types without their model file left out)
 int enemyTypePick(uint32_t seed);                    // weighted pick over the types (Zombies + heavies)
 int enemyTypeHeavyPick(uint32_t seed, float trollShare);   // EN3 AI type Heavies: "brute" with that share, else "stalker" (by weight among the heavies without those ids)

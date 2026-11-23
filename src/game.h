@@ -214,7 +214,10 @@ public:
   static bool rosterAlive(const Soldier& s) { return s.alive || s.mountDeath == 1; }   // HK5: a mounted knight whose horse is down is not dead to the match: the same slot goes on on foot (no respawn, no death counted)
   bool sameTeam(int a, int b) const { return a >= 0 && b >= 0 && sold[a].team == sold[b].team; }
   static bool hostile(const Soldier& a, const Soldier& b) {   // G1: every enemy check; CMD2: an AI never takes the /admin (ignored) or anyone (/peace) for an enemy
-    if (a.npc || b.npc) return &a != &b && !(a.npc && b.npc) && (a.npc ? a.npcFoe == b.slot : b.npcFoe == a.slot) && !(!a.human && gAdmin.peace);   // NPC1: a civilian is nobody's enemy but the one it fights back
+    // NPC1: a civilian takes nobody for an enemy but the one it fights back. NPC8 (the user): every AI of another side takes civilians for
+    // enemies (soldiers, monsters, knights, archers, the dragon, robots: all pick targets through this). A human player sees one as an
+    // enemy only while it fights him back (no enemy marks on bystanders). Civilians never turn on each other
+    if (a.npc || b.npc) return &a != &b && !(a.npc && b.npc) && (a.npc ? a.npcFoe == b.slot : b.npcFoe == a.slot || (!a.human && a.team != b.team)) && !(!a.human && gAdmin.peace);
     return &a != &b && a.team != b.team && !(!a.human && (gAdmin.peace || (gAdmin.ignored && b.localPlayer))); }
   // perception helpers
   bool lineOfSight(vec3 a, vec3 b, float* smokeT = nullptr) const;

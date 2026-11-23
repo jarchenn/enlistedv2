@@ -705,7 +705,7 @@ void Game::killSoldier(int i, int killer, vec3 dir) {
   }
   if (killer == localSlot && killer != i && hostile(sold[killer], s)) killMarker = 0.6f;   // red marker: enemy down
   if (!rosterAlive(s)) {   // HK5: not for a horse going down (the roster queued a respawn 3 s into the 3.2 s horse death: the dying pair jumped to a spawn point)
-  match.onDeath(i, killer);
+  match.onDeath(i, s.npc ? -1 : killer);   // NPC8: a civilian's death is no one's kill: no kill, score or team-kill penalty (AI now hunt them: the kill cap would fill with bystanders)
   if (match.mode() == GameMode::SearchDestroy) sdOnKill(*this, i, killer, s.lastHow);
   }   // SD1: rewards, the dropped bomb
   if (killer >= 0 && killer != i) ++kills;

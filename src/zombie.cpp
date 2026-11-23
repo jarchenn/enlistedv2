@@ -389,6 +389,7 @@ int enemyTypeNpcPick(uint32_t seed) {
   return P.empty() ? 0 : P[seed % P.size()];
 }
 // NPC1 (the user): a fighter hurt and still above npc_fight_hp of its health fights back; below it, it runs; a flee type runs at any hurt
+bool npcFleesKill(const Soldier& o, int victim, int killer) { return o.alive && o.npc && o.slot != victim && o.slot != killer; }   // NPC8 (the user): every civilian who sees a killing runs, the fighting kind too (not the one who did it)
 int npcReact(int npc, float hpAfter, float hpMax, float fightShare) { return npc == 1 ? (hpAfter > fightShare * hpMax ? 1 : 2) : npc == 2 ? 2 : 0; }
 static void npcFlee(Game& G, Soldier& o, vec3 from) { o.npcFoe = -1; o.npcCalmAt = G.t + enemyType(o.etype).npcCalm; o.npcFrom = from; o.npcNext = 0; }
 void aiHorseHurt(Game& G, Soldier& s, bool down) {
@@ -421,8 +422,8 @@ void npcHurt(Game& G, int victim, int attacker) {
       if (d < enemyType(o.etype).npcWitness && d < wd && (it == lastA.end() || it->second > G.t || G.t - it->second > 8.0) && G.lineOfSight(G.eye(o), G.chest(v))) { wd = d; w = &o; } }
     if (w) { lastA[w->slot] = G.t; const EnemyType& we = enemyType(w->etype); G.app.audio.play(we.sndAlarm.c_str(), G.eye(*w), 1.0f, 0.96f + 0.08f * G.rnd(*w)); }
   }
-  if (v.hp <= 0) for (auto& o : G.sold)   // NPC4 (the user): flee types run only once someone near them is killed (within npc_witness_m, a clear line to the chest), not at a mere hurt; npcHurt runs before killSoldier, so hp <= 0 is this death
-    if (o.alive && o.npc == 2 && &o != &v && glm::length(o.feet - v.feet) < enemyType(o.etype).npcWitness && G.lineOfSight(G.eye(o), G.chest(v))) npcFlee(G, o, from);
+  if (v.hp <= 0) for (auto& o : G.sold)   // NPC4 / NPC8 (the user): civilians run once someone near them is killed (within npc_witness_m, a clear line to the chest), not at a mere hurt; npcHurt runs before killSoldier, so hp <= 0 is this death. A fighter drops its foe and runs too; hit again above npc_fight_hp it turns and fights (npcReact, as before)
+    if (npcFleesKill(o, victim, attacker) && glm::length(o.feet - v.feet) < enemyType(o.etype).npcWitness && G.lineOfSight(G.eye(o), G.chest(v))) npcFlee(G, o, from);
 }
 // a civilian with no one to fight: flees from npcFrom until npcCalmAt (running, re-aimed every 2 s), then wanders round its home
 // (walks to a random spot within npc_wander_m, stands 2-8 s); calm again, home is where it stopped. A fighter's foe that died or got
@@ -1044,6 +1045,12 @@ int ar1SelfCheck() {
     Soldier n, p, q; n.slot = 1; n.npc = 1; n.team = 1; p.slot = 2; p.team = 0; p.human = true; q.slot = 3; q.npc = 2; q.team = 1;
     const bool calm = !Game::hostile(n, p) && !Game::hostile(p, n) && !Game::hostile(q, p); n.npcFoe = 2;
     const bool fights = Game::hostile(n, p) && Game::hostile(p, n) && !Game::hostile(n, q) && !Game::hostile(q, n);
+    {   // NPC8: AI of another side target civilians (zombie brain and soldier brain alike: both pick through Game::hostile); a witnessed kill makes every civilian run
+      Soldier zb, bot, mate, hum, cf, cr; zb.slot = 10; zb.team = 0; zb.zombie = true; bot.slot = 11; bot.team = 0; mate.slot = 12; mate.team = 1; mate.zombie = true; hum.slot = 13; hum.team = 0; hum.human = true;
+      cf.slot = 14; cf.team = 1; cf.npc = 1; cf.zombie = true; cf.npcFoe = 11; cr.slot = 15; cr.team = 1; cr.npc = 2; cr.zombie = true; cf.alive = cr.alive = bot.alive = true; Soldier dead = cr; dead.alive = false;
+      const bool hunted = Game::hostile(zb, cr) && Game::hostile(bot, cr) && Game::hostile(zb, cf) && Game::hostile(bot, cf) && !Game::hostile(mate, cr) && !Game::hostile(hum, cr) && !Game::hostile(cr, zb) && !Game::hostile(cf, zb) && Game::hostile(cf, bot) && !Game::hostile(cf, cr);
+      const bool run = npcFleesKill(cf, 99, 10) && npcFleesKill(cr, 99, 10) && !npcFleesKill(cf, 14, 10) && !npcFleesKill(cf, 99, 14) && !npcFleesKill(bot, 99, 10) && !npcFleesKill(dead, 99, 10);
+      chk(hunted && run, "Civilians (NPC8): a zombie and a soldier of another side take a civilian for a target, their own side's AI and a human bystander do not, civilians target only the one they fight back; a witnessed kill makes fighters and runners flee (not the victim or the killer)"); }
     chk(calm && fights && npcReact(1, 60, 100, 0.5f) == 1 && npcReact(1, 50, 100, 0.5f) == 2 && npcReact(2, 99, 100, 0.5f) == 2 && npcReact(0, 10, 100, 0.5f) == 0
         && std::string(aiTypeName(AiType::Civilians)) == "Civilians", "Civilians (NPC1): nobody's enemy until hurt; then only the one who hurt a fighter, while it is above half health; below it, or a flee type, runs");
     int ck = enemyTypeIndex("npc_ch31"), nNpc = 0; bool clipsOk = ck >= 0 && enemyType(ck).npc == 1 && enemyTypeNpcPick(7) >= 0 && enemyType(enemyTypeNpcPick(7)).npc;
