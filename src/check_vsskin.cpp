@@ -93,7 +93,8 @@ static void testCrowd(App& a, GLuint prog) {
   glUniform1f(glGetUniformLocation(prog, "uThin"), 0.0f); glUniform1i(glGetUniformLocation(prog, "uVelMode"), 1); glUniform1i(glGetUniformLocation(prog, "uSkinJ"), 0);
   glUniform1i(glGetUniformLocation(prog, "uCrowd"), S); glUniform1i(glGetUniformLocation(prog, "uCrowdBase"), 0); glUniform1f(glGetUniformLocation(prog, "uCrowdFps"), t.fps);
   glUniform4iv(glGetUniformLocation(prog, "uCrowdClip"), 8, glm::value_ptr(t.clip[0]));
-  glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 16, t.pal); glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 17, ub);
+  GLuint vb0; { const uint32_t z = 0; glCreateBuffers(1, &vb0); glNamedBufferStorage(vb0, 4, &z, 0); }   // GC2: the visible list (unit 0)
+  glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 16, t.pal); glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 17, ub); glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 18, vb0);
   auto capture = [&](GLuint vao, int n, std::vector<float>& got) {
     GLuint tf; glCreateBuffers(1, &tf); glNamedBufferStorage(tf, (size_t)n * 12 * 4, nullptr, 0);
     glBindVertexArray(vao); glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 0, tf);
@@ -120,7 +121,7 @@ static void testCrowd(App& a, GLuint prog) {
     char b[160]; std::snprintf(b, sizeof b, "crowd: gun (%d verts) placed within %.2g m", n, e); chk(n > 0 && e < 1e-4, b);
   }
   glUniform1i(glGetUniformLocation(prog, "uCrowd"), 0); glUniform1i(glGetUniformLocation(prog, "uCrowdGun"), 0); glUseProgram(0); glBindVertexArray(0);
-  glDeleteBuffers(1, &ub); crowdDestroy(t); m.destroy();
+  glDeleteBuffers(1, &ub); glDeleteBuffers(1, &vb0); crowdDestroy(t); m.destroy();
 }
 }
 

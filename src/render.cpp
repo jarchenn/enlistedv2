@@ -2333,6 +2333,7 @@ static const char* kModelVS = NMK_SKIN_GLSL R"GLSL(
 // (clip first + frame) * uCrowd (uCrowd = J + 1: the gun's rigid matrix last); uCrowdGun: the gun from its own attributes
 struct NmkCrowdU { vec4 pos; vec4 prev; vec4 anim; };   // feet xyz, yaw (rad); last frame's; clip, time (s), tint, scale
 layout(std430, binding = 17) readonly buffer NmkCrowd { NmkCrowdU gCU[]; };
+layout(std430, binding = 18) readonly buffer NmkCrowdVis { uint gCV[]; };   // GC2: the cull pass's visible units per type x LOD
 uniform int uCrowd, uCrowdBase, uCrowdGun; uniform ivec4 uCrowdClip[8]; uniform float uCrowdFps;
 mat4 nmkCrowdM(vec4 p, float s) { float c = cos(p.w + 3.14159265), n = sin(p.w + 3.14159265); return mat4(vec4(c * s, 0, -n * s, 0), vec4(0, s, 0, 0), vec4(n * s, 0, c * s, 0), vec4(p.xyz, 1)); }
 int nmkCrowdFrame(vec4 a) { ivec4 c = uCrowdClip[clamp(int(a.x), 0, 7)]; int f = int(floor(max(a.y, 0.0) * uCrowdFps)); f = c.z > 0 ? f % max(c.y, 1) : min(f, max(c.y, 1) - 1); return c.x + f; }
@@ -2353,7 +2354,7 @@ void main(){
     Pp = (nmkSkinM(v, uSkinJ) * vec4(v.pos.xyz, 1.0)).xyz;
   }
   if (uCrowd > 0) {   // GC1
-    NmkCrowdU u = gCU[uCrowdBase + gl_InstanceID]; int o = nmkCrowdFrame(u.anim) * uCrowd;
+    NmkCrowdU u = gCU[gCV[uCrowdBase + gl_InstanceID]]; int o = nmkCrowdFrame(u.anim) * uCrowd;
     Mdl = nmkCrowdM(u.pos, u.anim.w); PMdl = nmkCrowdM(u.prev, u.anim.w);
     if (uCrowdGun > 0) { mat4 G = gSkP[o + uCrowd - 1]; Mdl = Mdl * G; PMdl = PMdl * G; Pp = aPos; }
     else { NmkSkinV v = gSkV[gl_VertexID]; mat4 M = nmkSkinM(v, o); P = (M * vec4(v.pos.xyz, 1.0)).xyz; Nr = normalize(mat3(M) * v.nrm.xyz); Tn = vec4(1.0, 0.0, 0.0, 1.0); UV = v.uv.xy; Pp = P; }
@@ -6436,21 +6437,25 @@ void Renderer::drawCrowd(const std::vector<CrowdDraw>& items) {
   glUniform1i(U(p, "uGlass"), 0); glUniform1f(U(p, "uAlbFloor"), 0.0f); glUniform1i(U(p, "uClipMe"), 1); glUniform3f(U(p, "uEmis"), 0, 0, 0);
   const mat4 I(1); glUniformMatrix4fv(L.model, 1, GL_FALSE, glm::value_ptr(I)); glUniformMatrix4fv(U(p, "uPrevModel"), 1, GL_FALSE, glm::value_ptr(I));
   for (const CrowdDraw& c : items) {
-    if (!c.count || !c.vao || !c.parts || !c.look) continue;
+    if ((!c.count && !c.cmd) || !c.vao || !c.parts || !c.look) continue;
     glBindVertexArray(c.vao);
     if (c.rest) glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 15, c.rest);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 16, c.pal); glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 17, c.units);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 16, c.pal); glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 17, c.units); glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 18, c.vis);
+    if (c.cmd) glBindBuffer(GL_DRAW_INDIRECT_BUFFER, c.cmd);
     glUniform1i(lc, c.J + 1); glUniform1i(lcb, c.base); glUniform1i(lcg, c.gun ? 1 : 0); glUniform4iv(lcc, 8, glm::value_ptr(c.clips[0])); glUniform1f(lcf, c.fps);
-    for (const ModelPart& pt : *c.parts) {
+    for (size_t pk = 0; pk < c.parts->size(); ++pk) {
+      const ModelPart& pt = (*c.parts)[pk];
       const int mi = pt.mat >= 0 && pt.mat < (int)c.look->mats.size() ? pt.mat : -1;
       GpuModel::MatTex none; const GpuModel::MatTex& t = mi >= 0 ? c.look->mats[mi] : none;
       glBindTextureUnit(2, t.alb); glBindTextureUnit(3, t.mr); glBindTextureUnit(4, t.n); glBindTextureUnit(5, t.ao);
       glUniform1i(L.hasAlb, t.alb ? 1 : 0); glUniform1i(L.hasMR, t.mr ? 1 : 0); glUniform1i(L.hasNrm, t.n ? 1 : 0); glUniform1i(L.hasAO, t.ao ? 1 : 0); glUniform1i(L.aoInMR, t.aoInMR ? 1 : 0);
       glUniform4fv(L.base, 1, glm::value_ptr(pt.base)); glUniform1f(L.metal, pt.metal); glUniform1f(L.rough, pt.rough);
-      glDrawElementsInstanced(GL_TRIANGLES, (GLsizei)pt.count, GL_UNSIGNED_INT, (void*)(uintptr_t)(pt.first * 4u), c.count);
-      stats.draws++; stats.tris += (int)pt.count / 3 * c.count;
+      if (c.cmd) glDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_INT, (void*)(uintptr_t)((c.cmdFirst + pk) * 20u));   // GC2: the count is the GPU's
+      else { glDrawElementsInstanced(GL_TRIANGLES, (GLsizei)pt.count, GL_UNSIGNED_INT, (void*)(uintptr_t)(pt.first * 4u), c.count); stats.tris += (int)pt.count / 3 * c.count; }
+      stats.draws++;
     }
   }
+  glBindBuffer(GL_DRAW_INDIRECT_BUFFER, 0);
   glUniform1i(lc, 0); glUniform1i(lcg, 0);
 }
 

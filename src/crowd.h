@@ -22,6 +22,12 @@ struct CrowdType {
 bool crowdBake(CrowdType& t, const CharModel& m, const WeaponDef* w, std::string& err);
 void crowdDestroy(CrowdType& t);
 
-// GC1 frame: the crowd's units (Game::crowd) culled and sorted per type x LOD into the renderer's crowdDraws
-void crowdFrame(Game& g);
-void crowdReset();               // the match ended: types and buffers freed
+// GC2: the units live on the GPU (CrowdUnit + CrowdSim per unit); each frame compute passes hash them into a 2 m grid, move them
+// down their side's flow field with separation, and cull them into per type x LOD lists drawn indirectly. The CPU only stages
+// spawns and builds the flow fields (Dijkstra over the walkable grid from the navmesh) when a goal changes.
+struct CrowdSim { vec4 a; glm::ivec4 b; };   // a: velocity x z, hp, wanted speed; b: team, type, state (0 alive, 1 dying, 2 dead), target
+int crowdSpawn(Game& g, vec3 feet, float yaw, int team, int model, int gun, float speed);   // -1: full or no such type
+void crowdGoal(Game& g, int team, vec3 goal);    // team 0 / 1: the field its units walk down (rebuilt now)
+int crowdCount();                                // units spawned (alive or not)
+void crowdFrame(Game& g);                        // sim (dt from Game::t) + cull + the renderer's crowdDraws
+void crowdReset();                               // the match ended: types, units and buffers freed
