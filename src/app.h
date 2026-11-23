@@ -456,6 +456,7 @@ public:
   std::string crateTransaction(uint64_t crateId, WeaponState* who = nullptr, int whoWeapon = -1);   // who: a LAN client's weapon on the host (else the local player's)
   std::string resupplyPersonal(uint64_t crateId);
   std::string resupplyWeapon(uint64_t crateId, const WeaponDef& d, WeaponState& s);
+  void cannonStep(const Instance& inst, InstanceRT& r, float dt, const ExploreInput& in);   // CAN1 (station.cpp): fuse, rolling carriage, wheels
   void stationShoot(uint64_t id, int owner);       // one round from a station (local gunner, or a LAN client's on the host)
   void stationFinishReload(StationRT& s, const StationDef& d);
   void resetCrate(const Instance& i);

@@ -14,6 +14,18 @@
 static uint64_t coreUD(uint64_t id) { return id << 16; }
 // belt-fed machine-gun stations (M2HB tripod, MG 42 embrasure mount): continuous fire, belt reloads, no handler role
 static bool mgKind(const std::string& k) { return k == "m2hb" || k == "mg42"; }
+// CAN1: muzzle-loaders on wheeled carriages (18th-century cannon, mortar): no traverse mount (the gunner's yaw turns the
+// carriage), aimed over the tube at a white dot, fired by a fuse, rolled back by the shot
+static bool cannonKind(const std::string& k) { return k == "cannon"; }
+static float approach(float v, float t, float rate);
+// the carriage's speed along its +z after dt: the handler's push (tgt) builds slowly (it is heavy); otherwise the recoil's
+// braking above walking pace, then rolling resistance
+static float cannonSpeed(float v, float tgt, float push, float dt) {
+  if (tgt != 0 && tgt * v >= 0 && std::fabs(v) <= std::fabs(tgt)) return approach(v, tgt, 0.45f * dt);
+  return approach(v, 0.0f, (std::fabs(v) > push ? 5.0f : 1.2f) * dt);
+}
+// the shot's roll-back speed: rolls `recoil` m under cannonSpeed's two braking rates
+static float cannonRecoilSpeed(float recoil, float push) { return -std::sqrt(2.0f * 5.0f * std::max(0.0f, recoil - push * push / 2.4f) + push * push); }
 // MG 42 mount with the supplied GLB in its cradle (app.cpp draws it at elevM * translate(-bore)): the gunner aims as
 // with the handheld MG 42 - the eye on the gun's own sight line (rear V-notch -> front post) behind the notch. The
 // handheld draws the gun at its weapon FOV under its ADS world FOV; here the gun is part of the world, so the eye
@@ -50,7 +62,7 @@ bool App::gunnerOptic() const {
   if (!occupied || mode != Mode::Explore) return false;
   auto it = rt.find(occupied);
   if (it == rt.end() || it->second.asset->station.kind.empty()) return false;
-  return it->second.st.pos2 == ST_GUNNER && !mgKind(it->second.asset->station.kind);
+  return it->second.st.pos2 == ST_GUNNER && !mgKind(it->second.asset->station.kind) && !cannonKind(it->second.asset->station.kind);
 }
 
 mat4 App::stationMatrix(const Instance& i, const InstanceRT& r) const {
@@ -64,8 +76,8 @@ void App::stationParts(const Instance& i, const InstanceRT& r, mat4& base, mat4&
   yawM = base * glm::translate(mat4(1), s.yawPivot) * glm::mat4_cast(glm::angleAxis(radians(r.st.yaw), vec3(0, 1, 0)));
   elevM = yawM * glm::translate(mat4(1), s.elevPivot - s.yawPivot) * glm::mat4_cast(glm::angleAxis(radians(-r.st.elev), vec3(1, 0, 0)));
   float t = r.st.recoilT, off = 0;
-  if (mgKind(s.kind)) t = 1.0f;   // mounted MGs: no recoil travel
-  if (gFxRecoil && !mgKind(s.kind)) {   // fxrecoil (7.2 / 7.3): the brake's curve (Pak 40: 158 ms back, 788 ms home) on the rig's travel, and the carriage
+  if (mgKind(s.kind) || cannonKind(s.kind)) t = 1.0f;   // mounted MGs: no recoil travel; a cannon's whole carriage rolls back (stepStation)
+  if (gFxRecoil && !mgKind(s.kind) && !cannonKind(s.kind)) {   // fxrecoil (7.2 / 7.3): the brake's curve (Pak 40: 158 ms back, 788 ms home) on the rig's travel, and the carriage
     const FxGunRow& g = fxGunFor(s.kind);    // hops about its bedded spades (I_spade ~ 3 I: a third of the free 8.9 deg), wheels lifting, settling at f_n / zeta
     off = fxGunRecoilX(t + (gFxTier >= 2 ? fxGunPreTime(g) : 0.0f), g) * (s.recoil / std::max(g.L, 1e-3f));
     if (visual && g.platform == "towed" && t < 3.0f) {   // drawn only: the aim, the muzzle socket and the sight keep the bedded pose
@@ -99,6 +111,7 @@ bool App::stationCamera(vec3& eye, vec3& fwd, float& fov) const {
   vec3 se = s.optic - s.elevPivot, sf; fov = s.sightFov;   // PaK 40 ZF 3x8: 8 deg real field fills the eyepiece circle (9); others from the asset
   if (s.kind == "mg42") mg42MountSight(*this, se, sf, fov);   // the handheld MG 42's ADS eye and FOV
   eye = vec3(e * vec4(se, 1));
+  if (cannonKind(s.kind)) eye = vec3(b * vec4(s.optic, 1));   // CAN1: the gunner's eye stays behind the breech, the view along the tube
   fwd = glm::normalize(vec3(e * vec4(0, 0, 1, 0)));
   return true;
 }
@@ -110,6 +123,7 @@ bool App::carriageFits(const Instance& i, const InstanceRT& r, vec3& pos, float 
   auto w = [&](vec3 l) { return pos + q * l; };
   std::vector<vec3> wheels, spades;
   if (s.kind == "pak40") { wheels = {w({-0.9f, 0, 0}), w({0.9f, 0, 0})}; spades = {w({-0.98f, 0, -3.05f}), w({0.98f, 0, -3.05f})}; }
+  else if (cannonKind(s.kind)) { wheels = {w({-0.85f * s.moveHalf.x, 0, 0}), w({0.85f * s.moveHalf.x, 0, 0})}; spades = {w({0, 0, -0.9f * s.moveHalf.z})}; }   // CAN1: the trail end
   else { wheels = {w({-0.4f, 0, -0.6f}), w({0.4f, 0, -0.6f})}; spades = {w({0, 0, 0.8f})}; }
   for (auto& p : wheels) if (!terrain.inBuildArea(p.x, p.z)) { why = "outside the build area"; return false; }
   float h0 = terrain.height(wheels[0].x, wheels[0].z), h1 = terrain.height(wheels[1].x, wheels[1].z);
@@ -216,7 +230,7 @@ void App::leaveStation() {
       vec3 p = vec3(M * vec4(c, 1)); p.y = crewFloor(terrain.height(p.x, p.z), p);
       if (!Physics::capsuleBlocked(p + vec3(0, 0.1f, 0), Physics::standHeight() - 0.1f, Physics::radius())) { Physics::setCharacterPos(p); break; }
     }
-    s->pos2 = ST_NONE; s->trans = 0; s->reload = 0; s->armed = false;
+    s->pos2 = ST_NONE; s->trans = 0; s->reload = 0; s->armed = false; s->fuse = -1; s->speed = 0; s->yawT = 0;
   }
   uint64_t was = occupied;
   occupied = 0;
@@ -228,7 +242,8 @@ void App::switchStationPosition() {
   auto& r = rt[occupied];
   Instance* inst = doc.find(occupied);
   if (s->trans > 0) return;
-  if (s->pos2 == ST_GUNNER) { s->pos2 = ST_TO_MOVE; s->trans = 1.2f; s->reload = 0; s->status = "Leaving the sight, lifting the trails..."; audio.play("gun_move", s->pos); }
+  const bool can = cannonKind(r.asset->station.kind);
+  if (s->pos2 == ST_GUNNER) { s->pos2 = ST_TO_MOVE; s->trans = can ? 0.5f : 1.2f; s->reload = 0; s->status = "Leaving the sight, lifting the trails..."; audio.play("gun_move", s->pos); }
   else if (s->pos2 == ST_HANDLER) {
     if (s->deployed) {   // to Aim
       vec3 a = vec3(stationMatrix(*inst, r) * vec4(r.asset->station.gunner, 1)); a.y = crewFloor(terrain.height(a.x, a.z), a);
@@ -237,7 +252,7 @@ void App::switchStationPosition() {
     } else {
       std::string why; vec3 p = s->pos;
       if (!carriageFits(*inst, r, p, s->carYaw, why)) { s->status = "Cannot deploy here: " + why; s->moveOk = false; return; }
-      s->pos2 = ST_DEPLOYING; s->trans = 2.0f; s->status = "Deploying: spreading trails, setting spades..."; audio.play("gun_move", s->pos);
+      s->pos2 = ST_DEPLOYING; s->trans = can ? 0.5f : 2.0f; s->status = "Deploying: spreading trails, setting spades..."; audio.play("gun_move", s->pos);
     }
   }
 }
@@ -329,7 +344,7 @@ void App::stepProjectiles(float dt) {
         fx.streak(end - dn * p.boltLen * 0.6f, end, p.boltW * 2.2f, 0.03f, p.boltCol * 0.25f);
         fx.flash(end, p.boltW * 5.0f, 0.03f, p.boltCol * 0.3f);
       }
-      else if (p.kind == PROJ_HE) fx.streak(p.p, end, 0.045f, 0.05f, vec4(2.2f, 1.6f, 1.0f, 1));
+      else if (p.kind == PROJ_HE && !p.mesh) fx.streak(p.p, end, 0.045f, 0.05f, vec4(2.2f, 1.6f, 1.0f, 1));   // CAN1: a round shot is drawn instead (below)
       else if (p.kind == PROJ_ROCKET) { fx.streak(p.p, end, 0.06f, 0.06f, vec4(6.0f, 3.0f, 1.0f, 1)); if (fx.rnd() < 0.5f) fx.smoke(p.p, vec3(0, 0.2f, 0), 0.12f, 1.4f, vec4(0.62f, 0.6f, 0.57f, 0.45f), 1.4f, 0.2f); }
       else if (p.mesh) p.visTrav += glm::length(end - p.p);   // XB7: the bolt itself is drawn (projectileDrawItems)
       else { float L = glm::length(end - p.p); if (p.visTrav + L > p.trailSkip) { float u0 = p.visTrav < p.trailSkip && L > 0 ? (p.trailSkip - p.visTrav) / L : 0.0f;
@@ -455,6 +470,7 @@ void App::stepStation(float dt, const ExploreInput& in) {
       else if (s->pos2 == ST_DEPLOYING) { s->pos2 = ST_HANDLER; s->deployed = true; s->status = "Deployed - T for Aim"; }
     }
   }
+  if (cannonKind(d.kind) && R.perf.cannons) cannonStep(*inst, r, dt, in);
   mat4 M = stationMatrix(*inst, r);
   if (s->pos2 == ST_GUNNER) {
     // bounded traverse/elevation in the deployed carriage frame
@@ -465,11 +481,12 @@ void App::stepStation(float dt, const ExploreInput& in) {
     bool mg = mgKind(d.kind), mg42 = d.kind == "mg42";
     if (mg) { s->yaw = s->yawT; s->elev = s->elevT; }   // a mounted MG swings as freely as the carried gun: no traverse / elevation rate
     else { s->yaw = approach(s->yaw, s->yawT, d.traverseRate * dt); s->elev = approach(s->elev, s->elevT, d.elevateRate * dt); }
+    if (cannonKind(d.kind)) s->yaw = 0;   // CAN1: yawT is the carriage turn still to make (below)
     int full = mg ? std::max(1, d.loaded) : 1;   // one belt: M2HB 110, MG 42 50
     if (!mg && in.toggleAmmo && s->reserveATMax > 0) { s->selAT = !s->selAT; toast(d.label + ": next round " + (s->selAT ? d.atName : d.heName) + " - takes effect at the next reload", 3); }
     int pool = (!mg && s->selAT) ? s->reserveAT : s->reserve;
     const char* loadSnd = mg42 && audio.hasEvent("reload_mg42") ? "reload_mg42" : mg ? "belt" : "breech";   // the handheld MG 42's belt foley
-    if (in.reload && s->loaded < full && pool > 0 && s->reload <= 0 && (mg || s->loaded == 0)) { s->reload = d.reloadTime; audio.play(loadSnd, vec3(M[3])); }
+    if ((in.reload || (cannonKind(d.kind) && s->fuse < 0)) && s->loaded < full && pool > 0 && s->reload <= 0 && (mg || s->loaded == 0)) { s->reload = d.reloadTime; audio.play(loadSnd, vec3(M[3])); }   // CAN1: the cannon's crew reloads by itself
     if (s->reload > 0) {
       s->reload -= dt;
       if (s->reload <= 0) { stationFinishReload(*s, d); audio.play(loadSnd, vec3(M[3])); }
@@ -490,12 +507,13 @@ void App::stepStation(float dt, const ExploreInput& in) {
     }
     if (!mg && fireHeld && s->armed && s->deployed && s->trans <= 0) {
       s->armed = false;
-      if (s->loaded > 0 && s->reload <= 0) stationShoot(occupied, -1);
+      if (s->loaded > 0 && s->reload <= 0 && cannonKind(d.kind) && R.perf.cannons) { if (s->fuse < 0) { s->fuse = 0; audio.play("bolt", vec3(M[3]), 0.4f, 1.6f); } }   // CAN1: the match to the fuse
+      else if (s->loaded > 0 && s->reload <= 0) stationShoot(occupied, -1);
       else audio.play("click", vec3(M[3]), 0.6f);
     }
     vec3 a = vec3(M * vec4(d.gunner, 1)); a.y = crewFloor(terrain.height(a.x, a.z), a);
     Physics::setCharacterPos(a);
-  } else if (s->pos2 == ST_HANDLER && !s->deployed && s->trans <= 0) {
+  } else if (s->pos2 == ST_HANDLER && !s->deployed && s->trans <= 0 && !(cannonKind(d.kind) && R.perf.cannons)) {
     // reposition: slow, short, swept against structures and checked for ground support
     float turn = -in.move.x * 12.0f * dt, push = in.move.y * 0.7f * dt;
     if (turn != 0 || push != 0) {
@@ -515,6 +533,34 @@ void App::stepStation(float dt, const ExploreInput& in) {
     Physics::setCharacterPos(a);
   }
   s->recoilT += dt;
+}
+
+// CAN1: a cannon's fuse and carriage. The fuse burns from its tip into the vent (a spark and a wisp along it), then the
+// shot. The carriage rolls along its +z: pushed by the handler (W/S, slow to get going: it is heavy), turned by the handler
+// (A/D) or by the gunner's aim (yawT: the turn still to make, at traverseRate), rolled back by the shot (s->speed < 0) and
+// braked by the ground; each side's wheels turn by that side's travel (app.cpp draws them).
+void App::cannonStep(const Instance& inst, InstanceRT& r, float dt, const ExploreInput& in) {
+  StationRT* s = &r.st; const StationDef& d = r.asset->station;
+  if (s->fuse >= 0) {
+    s->fuse += dt;
+    mat4 b, y, e, rc; stationParts(inst, r, b, y, e, rc);
+    const vec3 sp = vec3(e * vec4(glm::mix(d.vent, d.fuseTip, std::max(0.0f, 1.0f - s->fuse / d.fuseTime)) - d.elevPivot, 1));
+    fx.flash(sp, 0.07f, 0.04f, vec4(9, 5, 1.5f, 1));
+    if (fx.rnd() < 0.4f) fx.smoke(sp, vec3(0, 0.3f, 0), 0.03f, 0.9f, vec4(0.72f, 0.7f, 0.66f, 0.5f), 1.8f, 0.3f);
+    if (s->fuse >= d.fuseTime) { s->fuse = -1; if (s->loaded > 0) stationShoot(inst.id, -1); }
+  }
+  float tgt = 0, turn = 0;
+  if (s->pos2 == ST_HANDLER && !s->deployed && s->trans <= 0) { tgt = in.move.y * d.pushSpeed; turn = -in.move.x * 9.0f * dt; }
+  if (s->pos2 == ST_GUNNER) { turn = std::clamp(s->yawT, -d.traverseRate * dt, d.traverseRate * dt); s->yawT -= turn; }
+  s->speed = cannonSpeed(s->speed, tgt, d.pushSpeed, dt);
+  if (s->speed == 0 && turn == 0) return;
+  const float ny = wrapDeg(s->carYaw + turn); vec3 np = s->pos + yawQuat(ny) * vec3(0, 0, 1) * (s->speed * dt);
+  std::string why;
+  if (!carriageFits(inst, r, np, ny, why)) { s->speed = 0; s->yawT = 0; s->moveOk = false; if (s->pos2 == ST_HANDLER) s->status = "Blocked: " + why; return; }
+  const float half = 0.85f * d.moveHalf.x, da = radians(turn);   // a turn about the centre: the -x side runs forward for a positive yaw
+  s->rollL += s->speed * dt + da * half; s->rollR += s->speed * dt - da * half;
+  s->pos = np; s->carYaw = ny; s->moveOk = true; if (s->pos2 == ST_HANDLER) s->status = "Ground OK";
+  Physics::setTransform(r.staticBody, s->pos, yawQuat(s->carYaw));
 }
 
 // one round: the projectile along the moving parts' aim, ammunition, recoil, flash and sound. owner -1 = the local gunner.
@@ -543,12 +589,18 @@ void App::stationShoot(uint64_t id, int owner) {
     start = vec3(e * vec4(bore.x, bore.y, 0, 1));   // sweep from there along the bore: a wall at the muzzle stops the shell
     fireProjectile(start, dir, s->loadedAT ? d.atVelocity : d.heVelocity, PROJ_HE, d.heDamage, coreUD(inst->id), false, s->loadedAT ? d.ammoAT : d.ammo);
     projectiles.back().at = s->loadedAT; projectiles.back().atKill = true; projectiles.back().blastR = d.heRadius; projectiles.back().craterScale = d.heCrater;
+    projectiles.back().gravScale = d.heGravity;
+    if (cannonKind(d.kind) && R.perf.cannons) {   // CAN1: the ball drawn, the carriage rolled back recoil m, a black-powder cloud
+      projectiles.back().mesh = d.ballModel.get(); s->speed = cannonRecoilSpeed(d.recoil, d.pushSpeed);
+      for (int k = 0; k < 12; ++k) { vec3 j(fx.rnd() - 0.5f, fx.rnd() - 0.3f, fx.rnd() - 0.5f); fx.smoke(muzzle + dir * (0.2f + 0.3f * k), dir * (5.0f - 0.35f * k) + j * 1.2f, 0.35f + 0.08f * k, 5.0f + 3.0f * fx.rnd(), vec4(0.84f, 0.83f, 0.8f, 0.8f), 2.4f, 0.25f); }
+      const vec3 vent = vec3(e * vec4(d.vent - d.elevPivot, 1)); fx.flash(vent, 0.25f, 0.06f, vec4(9, 6, 3, 1)); fx.smoke(vent, vec3(0, 1.2f, 0), 0.15f, 2.5f, vec4(0.8f, 0.79f, 0.76f, 0.6f), 2.0f, 0.5f);
+    }
     fx.muzzle(muzzle, dir, d.muzzleScale, d.kind.c_str());   // fxev: pak40 / flak18 -> their weapons.json row (fxHeavyFor)
     audio.play(d.fireSound, muzzle, 1.0f);
   }
   projectiles.back().owner = owner;
   s->loaded -= 1; s->shots++; s->recoilT = 0;
-  if (gFxRecoil && !mgKind(d.kind) && fxGunFor(d.kind).platform == "towed") {   // fxrecoil (7.3): the spades dig in, a pair of trenches deepening with the shots
+  if (gFxRecoil && !mgKind(d.kind) && !cannonKind(d.kind) && fxGunFor(d.kind).platform == "towed") {   // fxrecoil (7.3): the spades dig in, a pair of trenches deepening with the shots
     const float dep = std::min(0.15f, 0.04f * (1.0f + 0.5f * (float)s->shots));
     const vec3 back = glm::normalize(vec3(b * vec4(0, 0, -1, 0)));
     for (float x : {-0.75f, 0.75f}) { const vec3 sp = vec3(b * vec4(x, 0, d.elevPivot.z - 2.4f, 1)); deformStamp(sp, sp + back * 0.4f, 0.18f, dep, 1.0f); }
@@ -628,8 +680,9 @@ void App::drawCombatUI() {
   const StationDef& d = r.asset->station;
   vec3 ie, ifr; float ifov;
   bool irons = d.kind == "mg42" && mg42MountSight(*this, ie, ifr, ifov);   // aimed over the gun's own sights, as handheld: no dot
-  if (s->pos2 == ST_GUNNER && mgKind(d.kind) && !irons) dl->AddCircleFilled(c, 2.5f, IM_COL32(240, 240, 230, 200));
-  if (s->pos2 == ST_GUNNER && !mgKind(d.kind)) {
+  if (s->pos2 == ST_GUNNER && (mgKind(d.kind) || cannonKind(d.kind)) && !irons) dl->AddCircleFilled(c, 2.5f, IM_COL32(240, 240, 230, 200));   // CAN1: the cannon's aim: the small white dot
+  if (s->pos2 == ST_GUNNER && cannonKind(d.kind)) { char e[64]; std::snprintf(e, sizeof e, "Elevation %+.0f\xC2\xB0%s", s->elev, s->fuse >= 0 ? "   FUSE LIT" : ""); dl->AddText(ImVec2(c.x + 14, c.y + 12), IM_COL32(240, 240, 230, 220), e); }
+  if (s->pos2 == ST_GUNNER && !mgKind(d.kind) && !cannonKind(d.kind)) {
     // TZF-style optic: the eyepiece, its soft black surround and the reticle are drawn by the renderer (render.cpp
     // eyepiece pass); the shell / traverse / elevation readout sits at the bottom right of the eyepiece
     float R = io.DisplaySize.y * kGunnerEyepieceR;
@@ -649,7 +702,7 @@ void App::drawCombatUI() {
   char b[256];
   const char* posName[] = {"", "GUNNER (Aim)", "PREPARING TO MOVE", "HANDLER (Move)", "DEPLOYING"};
   std::string cal = d.kind == "flak18" ? "8.8 cm" : "7.5 cm";
-  std::string ammoName = d.kind == "mg42" ? "7.92 mm belt" : d.kind != "m2hb" ?(s->loadedAT && s->loaded ? cal + " AT loaded" : cal + " HE") + " | next " + (s->selAT ? "AT" : "HE") + " (X) | AT reserve " + std::to_string(s->reserveAT) : ".50 belt";
+  std::string ammoName = cannonKind(d.kind) ? std::string("Round shot") : d.kind == "mg42" ? "7.92 mm belt" : d.kind != "m2hb" ?(s->loadedAT && s->loaded ? cal + " AT loaded" : cal + " HE") + " | next " + (s->selAT ? "AT" : "HE") + " (X) | AT reserve " + std::to_string(s->reserveAT) : ".50 belt";
   std::string state = s->reload > 0 ? "RELOADING " + std::to_string(s->reload).substr(0, 3) + " s" : s->loaded > 0 ? "READY" : "EMPTY - R to reload";
   std::snprintf(b, sizeof b, "%s | %s: %d loaded, %d reserve (max %d) | %s\nT switch position   E leave gun   %s", posName[s->pos2], ammoName.c_str(), s->loaded, s->reserve, s->reserveMax,
                 s->pos2 == ST_GUNNER ? state.c_str() : (s->deployed ? "deployed" : "not deployed - no firing"), s->status.c_str());
@@ -662,6 +715,7 @@ void App::drawCombatUI() {
     Instance* inst = doc.find(occupied);
     mat4 M = stationMatrix(*inst, r), vp = projM * viewM;
     vec3 loc[4] = {{-1.0f, 0.05f, 0.5f}, {1.0f, 0.05f, 0.5f}, {1.0f, 0.05f, -3.15f}, {-1.0f, 0.05f, -3.15f}};
+    if (cannonKind(d.kind)) { const vec3 h = d.moveHalf; loc[0] = {-h.x, 0.05f, h.z}; loc[1] = {h.x, 0.05f, h.z}; loc[2] = {h.x, 0.05f, -h.z}; loc[3] = {-h.x, 0.05f, -h.z}; }
     ImVec2 sp[4]; bool ok = true;
     for (int k = 0; k < 4; ++k) {
       vec3 w = vec3(M * vec4(loc[k], 1)); w.y = terrain.height(w.x, w.z) + 0.05f;
@@ -670,4 +724,39 @@ void App::drawCombatUI() {
     }
     if (ok) for (int k = 0; k < 4; ++k) dl->AddLine(sp[k], sp[(k + 1) % 4], s->moveOk ? IM_COL32(90, 230, 120, 230) : IM_COL32(255, 80, 60, 240), 2.5f);
   }
+}
+
+// CAN1 --check-can1 (headless): both cannon assets parse as asked (elevation -20..+60, ten rounds, 5 s a round, a fuse, four
+// wheels, a ball model); the ball lands inside a projectile's 9 s life at every elevation; the shot rolls the carriage back
+// its recoil; a push takes 1.5-3 s to reach walking pace
+int cannonSelfCheck() {
+  int fails = 0; auto ok = [&](bool c, const std::string& m) { std::printf("[can1] %s %s\n", c ? "PASS" : "FAIL", m.c_str()); if (!c) ++fails; };
+  for (const char* id : {"gun_cannon18", "gun_cannon_mortar"}) {
+    json j; try { j = json::parse(readTextFile(contentDir() / "assets" / (std::string(id) + ".json"))); } catch (...) { ok(false, std::string(id) + " parses"); continue; }
+    const json& st = j["station"]; const std::string n = id;
+    ok(st.value("kind", "") == "cannon", n + " kind cannon");
+    ok(st["elevation"][0].get<float>() == -20 && st["elevation"][1].get<float>() == 60, n + " elevation -20..+60");
+    ok(st.value("loaded", 0) + st.value("reserve", 0) == 10 && st.value("reloadTime", 0.0f) == 5.0f, n + " ten rounds, 5 s each");
+    const fs::path md = contentDir() / "assets" / "models";
+    ok(fs::exists(md / st.value("ball", std::string("?")) / "mesh.bin"), n + " ball model baked");
+    int wheels = 0, fuse = 0, tube = 0;
+    try { json m = json::parse(readTextFile(md / j["model"]["dir"].get<std::string>() / "model.json"));
+      for (auto& p : m["parts"]) { std::string pn = p.value("name", ""); wheels += pn.rfind("wheel_", 0) == 0; fuse += pn == "fuse"; tube += pn == "tube"; } } catch (...) {}
+    ok(wheels == 4 && fuse == 1 && tube == 1, n + " model: 4 wheels, a fuse, a tube (" + std::to_string(wheels) + ", " + std::to_string(fuse) + ", " + std::to_string(tube) + ")");
+    const json& he = st["shellHE"]; const float v0 = he.value("velocity", 0.0f), g = 9.81f * he.value("gravity", 1.0f), y0 = st["muzzle"][1].get<float>();
+    float worst = 0, best = 0;
+    for (float el = -20; el <= 60; el += 5) {   // the round flown as stepProjectiles flies it
+      vec3 p(0, y0, 0), v(0, v0 * std::sin(radians(el)), v0 * std::cos(radians(el))); float t = 0;
+      while (p.y > 0 && t < 30) { const float h = 1.0f / 120; p += v * h; v.y -= g * h; t += h; }
+      worst = std::max(worst, t); best = std::max(best, p.z);
+    }
+    ok(worst < 9.0f, n + " lands inside the 9 s life (longest flight " + std::to_string(worst).substr(0, 4) + " s, range up to " + std::to_string((int)best) + " m)");
+    const float rc = st.value("recoil", 0.0f), push = st.value("pushSpeed", 0.9f);
+    float v = cannonRecoilSpeed(rc, push), x = 0; for (int k = 0; k < 600; ++k) { v = cannonSpeed(v, 0, push, 1.0f / 120); x += v / 120; }
+    ok(std::fabs(-x - rc) < 0.05f * rc + 0.01f, n + " rolls back " + std::to_string(-x).substr(0, 4) + " m (recoil " + std::to_string(rc).substr(0, 4) + ")");
+    v = 0; float t = 0; while (v < push - 1e-3f && t < 10) { v = cannonSpeed(v, push, push, 1.0f / 120); t += 1.0f / 120; }
+    ok(t >= 1.5f && t <= 3.0f, n + " a push reaches walking pace in " + std::to_string(t).substr(0, 4) + " s");
+  }
+  std::printf("[can1] %s (%d failed)\n", fails ? "FAIL" : "PASS", fails);
+  return fails ? 1 : 0;
 }

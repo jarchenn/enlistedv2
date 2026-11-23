@@ -1,0 +1,163 @@
+{
+ "id": "gun_cannon_mortar",
+ "version": 1,
+ "name": "Mortar on a truck carriage",
+ "category": "Field guns",
+ "description": "A short-barrelled mortar on a four-wheeled truck carriage (Delfrador, CC-BY-4.0). Crew it from the gunner (Aim): -20 to +60 deg elevation; the carriage turns with the aim. Fire lights the fuse at the vent; the ball bursts on impact (area damage). Ten rounds, 5 s to load each. Move: push the carriage on its wheels (W/S, A/D). Game values.",
+ "floors": 0,
+ "enterable": false,
+ "footprint": [
+  1.132,
+  1.54
+ ],
+ "plinthDepth": 0,
+ "maxGrade": 0.6,
+ "noAutoPanels": true,
+ "materials": [
+  {
+   "name": "wood",
+   "albedo": [
+    0.36,
+    0.27,
+    0.17
+   ],
+   "roughness": 0.85,
+   "pattern": "wood",
+   "metallic": 0,
+   "grain": 1
+  }
+ ],
+ "parts": [
+  {
+   "t": "b",
+   "c": [
+    0,
+    0.345,
+    -0.258
+   ],
+   "s": [
+    0.906,
+    0.69,
+    1.024
+   ],
+   "m": "wood",
+   "v": 0
+  },
+  {
+   "t": "b",
+   "c": [
+    0,
+    0.767,
+    0.172
+   ],
+   "s": [
+    0.6,
+    0.6,
+    0.846
+   ],
+   "m": "wood",
+   "v": 0
+  }
+ ],
+ "model": {
+  "src": "cannon_mortar.glb",
+  "dir": "cannon_mortar",
+  "pivot": "ground",
+  "scale": 1,
+  "maxTex": 1024,
+  "stationRoles": {
+   "tube": "elevation",
+   "fuse": "fuse",
+   "wheel_": "wheel"
+  }
+ },
+ "models": [
+  {
+   "dir": "mortar_ball",
+   "bake": {
+    "src": "mortar_ball.glb",
+    "lod1": 0
+   }
+  }
+ ],
+ "station": {
+  "kind": "cannon",
+  "yawPivot": [
+   -0.0,
+   0.767,
+   0.2539
+  ],
+  "elevPivot": [
+   -0.0,
+   0.767,
+   0.2539
+  ],
+  "muzzle": [
+   -0.0,
+   0.7667,
+   0.595
+  ],
+  "optic": [
+   -0.0,
+   0.9867,
+   -0.8007
+  ],
+  "gunner": [
+   0.55,
+   0.0,
+   -1.001
+  ],
+  "handler": [
+   0.0,
+   0.0,
+   -1.22
+  ],
+  "vent": [
+   -0.0,
+   0.9288,
+   -0.1493
+  ],
+  "fuseTip": [
+   -0.0,
+   0.9538,
+   -0.2493
+  ],
+  "fuseTime": 1.0,
+  "traverse": [
+   -45,
+   45
+  ],
+  "elevation": [
+   -20,
+   60
+  ],
+  "traverseRate": 10,
+  "elevateRate": 12,
+  "recoil": 0.5,
+  "reloadTime": 5,
+  "loaded": 1,
+  "reserve": 9,
+  "ammo": "round_shot",
+  "moveHalf": [
+   0.566,
+   0.544,
+   0.77
+  ],
+  "serviceRadius": 6,
+  "pushSpeed": 0.9,
+  "label": "Mortar on a truck carriage",
+  "heName": "Round shot",
+  "sightFov": 60,
+  "muzzleScale": 1.9,
+  "fireSound": "pak_fire",
+  "shellHE": {
+   "velocity": 62,
+   "damage": 180,
+   "radius": 6.0,
+   "crater": 0.8,
+   "gravity": 2.0
+  },
+  "ball": "mortar_ball",
+  "note": "CAN1: ten rounds (1 loaded + 9), 5 s to load; the ball drops at gravity x2 (moderately quick); bursts on contact with ground or a soldier (radius m)."
+ }
+}

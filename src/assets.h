@@ -158,7 +158,11 @@ struct StationDef {
   float sightFov = 9.0f, heVelocity = 550, heDamage = 120, heRadius = 2.2f, heCrater = 1.0f, atVelocity = 790, muzzleScale = 1.0f;
   std::string fireSound = "pak_fire";
   bool fixed = false;                       // emplacement: crewed in place, never moved (no handler / Move)
-  std::vector<int> modelRole;               // per supplied-model part: 0 base, 1 traverse, 2 elevation, 3 recoil
+  std::vector<int> modelRole;               // per supplied-model part: 0 base, 1 traverse, 2 elevation, 3 recoil, 4 wheel, 5 fuse
+  // CAN1 kind "cannon" (perf cannons): a fuse cord vent -> tip that burns down before the shot, the round shot's drop and
+  // drawn ball, the carriage rolled back by the shot and pushed with inertia on its spinning wheels
+  vec3 vent{0}, fuseTip{0}; float fuseTime = 1.0f, heGravity = 1.0f, pushSpeed = 0.9f;
+  std::shared_ptr<GpuModel> ballModel;
 };
 
 // Destructible tree (Vegetation): trunk parts split at the stump cut, alpha-tested leaf cards with a sway mask.
