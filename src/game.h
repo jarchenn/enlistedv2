@@ -81,7 +81,8 @@ struct Soldier {
   vec3 prevFeet{0}; float poseAcc = 0; int poseRate = 1; int poseKey = -1;   // poseKey: posture / alive / swim / life when last posed (a change forces a pose)   // CP: feet at the last step's start (drawn between the two), time since the last pose evaluation, its update interval (frames)
   vec3 lastGoodFeet{0};                      // the last finite feet (Game::step restores it if a NaN appears)
   bool swim = false; float swimBlend = 0;    // swimming (swim.cpp; bots: floating agents; LAN: snapshot flags 2|4, client posture 3)
-  float hp = 100; double diedAt = 0; int deathStyle = 0; int killer = -1; vec3 deathDir{0};
+  float hp = 100; double diedAt = 0; int deathStyle = 0; int deathPick = -1;   // KD1: deathPick: the death clip of a melee type (index in its list), from the host
+   int killer = -1; vec3 deathDir{0};
   int weapon = -1; WeaponState ws; float reload = 0, reloadTotal = 0; int shots = 0;
   int frags = 0, smokes = 0;
   int helmetLvl = 0, vestLvl = 0, backpack = 0;   // BR2 Battle Royale: worn armour levels 0-3, backpack 0 none / 1 / 2 military (BR3 draws them)

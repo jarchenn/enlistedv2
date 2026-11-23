@@ -14,6 +14,7 @@
 #include <cstring>
 #include <fstream>
 #include <map>
+#include <functional>
 #include "ai_core.h"
 #include "app.h"
 #include "mpai.h"
@@ -41,6 +42,7 @@ struct ZombieCfg {
   float repath = 0.5f, flinch = 0.6f;
   std::vector<EnemyType> types;   // EN1: [0] the plain zombie
   std::vector<std::pair<std::string, float>> assorted;   // AK1 json "assorted": [[type id, weight]]: AI type Assorted Knights' mix
+  std::map<std::string, std::string> deathDirs;   // KD1 json "death_dirs": {clip: the hit it suits: front / back / left / right / any} (where the clip's hips fall)
   // PF1 packs and LOD
   bool packs = true; int packMin = 20, packSize = 8; float join = 35, breakOff = 4, spacing = 1.6f, leaderPace = 0.9f, catchUp = 1.25f;
   float sepR = 1.3f, sepGain = 2.0f, align = 0.35f, lost = 18;
@@ -123,6 +125,7 @@ const ZombieCfg& zcfg() {
         c.types.push_back(t);
       }
       for (auto& a : j.value("assorted", json::array())) if (a.is_array() && a.size() == 2) c.assorted.push_back({a[0].get<std::string>(), std::max(0.0f, a[1].get<float>())});   // AK1
+      for (auto& [k, v] : j.value("death_dirs", json::object()).items()) if (v.is_string()) c.deathDirs[k] = v.get<std::string>();   // KD1
       json p = j.value("pack", json::object());
       c.packs = p.value("on", c.packs); c.packMin = p.value("min_zombies", c.packMin); c.packSize = std::clamp(p.value("size", c.packSize), 2, 16);
       c.join = p.value("join_m", c.join); c.breakOff = p.value("break_off_m", c.breakOff); c.spacing = p.value("slot_spacing_m", c.spacing);
@@ -870,6 +873,32 @@ void aiZombieDead(Game& G, Soldier& s) {
   logf("HK2: slot %d: the horse is down; on foot as %s", s.slot, f.id.c_str());
 }
 
+// KD1: which death clip, of the type's list, for a death: the clips the model has (has(i)), those that suit the hit's direction
+// (push = the killing push in model space: +z the body's front, +x its left; json death_dirs), the headshot clips first for a head
+// hit; then one of them by slot and life (neighbouring slots differ; the same death replays the same clip). -1: none listed.
+int deathPickFor(const std::vector<std::string>& clips, const std::function<bool(int)>& has, vec3 push, bool head, int slot, int life) {
+  const ZombieCfg& c = zcfg(); std::vector<int> all, dir, headv;
+  const std::string want = std::fabs(push.z) >= std::fabs(push.x) ? (push.z < 0 ? "front" : "back") : (push.x > 0 ? "left" : "right");   // pushed back: hit from the front
+  for (int i = 0; i < (int)clips.size(); ++i) {
+    if (!has(i)) continue; all.push_back(i);
+    auto t = c.deathDirs.find(clips[i]); const std::string tag = t == c.deathDirs.end() ? "any" : t->second;
+    if (tag == want || tag == "any") dir.push_back(i);
+    if (clips[i].find("headshot") != std::string::npos) headv.push_back(i);
+  }
+  if (all.empty()) return -1;
+  std::vector<int> pool = dir.empty() ? all : dir;
+  if (head) { std::vector<int> hp; for (int i : pool) if (std::find(headv.begin(), headv.end(), i) != headv.end()) hp.push_back(i); if (!hp.empty()) pool = hp; else if (!headv.empty()) pool = headv; }
+  const uint32_t h = (uint32_t)slot * 7u + (uint32_t)life * 3u;
+  return pool[h % pool.size()];
+}
+int aiZombieDeathPick(Game& G, Soldier& s) {   // KD1 (host, at the death): the pick sent to LAN clients with the death style
+  if (!s.zombie || s.model < 0 || s.model >= (int)G.models.size()) return -1;
+  const CharModel& m = *G.models[s.model]; const EnemyType& ce = clipsOf(s);
+  vec3 l = glm::inverse(glm::mat3(s.world)) * s.deathDir; float L = glm::length(l); if (L > 1e-4f) l /= L;
+  const bool head = s.lastHow.find("head") != std::string::npos;
+  return deathPickFor(ce.deathClips, [&](int i) { return findClip(m, ce.deathClips[i].c_str()) >= 0; }, l, head, s.slot, s.lifeId);
+}
+
 // the look: which clip plays (host and LAN clients alike; hp and speed replicate, strikes only on the host)
 void aiZombiePose(Game& G, Soldier& s, float dt) {
   enum { K_LOCO, K_IDLE, K_ATTACK, K_DAMAGE, K_DEATH, K_CLIMB };
@@ -897,7 +926,7 @@ void aiZombiePose(Game& G, Soldier& s, float dt) {
   const BotMind* tm = nullptr; if (AiCore* Ac = aiCore()) tm = mindAt(*Ac, s.slot);
   bool climbing = s.alive && tm && tm->life == s.lifeId && tm->trav.on && tm->trav.heavy;   // EN4 (host: the traversal; clients see the walk)
   if (!s.alive && A.key != K_DEATH && !e.sndWeaponDrop.empty()) {   // KS1: the weapon reaches the floor handFloor s into the death clip (played at rate 1)
-    int dc = pickAt(ce.deathClips, s.slot + s.lifeId);
+    int dc = s.deathPick >= 0 ? pickAt(ce.deathClips, s.deathPick) : pickAt(ce.deathClips, s.slot + s.lifeId);   // KD1
     if (dc >= 0 && m.clips[dc].handFloor >= 0) G.app.audio.play(e.sndWeaponDrop.c_str(), s.feet + vec3(0, 0.2f, 0), 1.0f, 0.96f + 0.08f * G.rnd(s), m.clips[dc].handFloor);
   }
   int hd = !s.alive && s.mountDeath == 1 ? findClip(m, e.horseDeathClip.c_str()) : -1;   // HK2: the horse down (decided on the host: aiZombieDead)
@@ -905,7 +934,7 @@ void aiZombiePose(Game& G, Soldier& s, float dt) {
     vec3 l = glm::inverse(glm::mat3(s.world)) * s.deathDir;
     hd = findClip(m, (l.x < 0 ? e.deathRight : e.deathLeft).c_str());
   }
-  if (!s.alive) A.play(K_DEATH, hd >= 0 ? hd : pickAt(ce.deathClips, s.slot + s.lifeId), -1, 0, 1, false);
+  if (!s.alive) A.play(K_DEATH, hd >= 0 ? hd : s.deathPick >= 0 ? pickAt(ce.deathClips, s.deathPick) : pickAt(ce.deathClips, s.slot + s.lifeId), -1, 0, 1, false);   // KD1: the host's pick (hit direction, headshot)
   else if (climbing) { int cc = ce.climbClip.empty() ? -1 : findClip(m, ce.climbClip); if (cc >= 0) A.play(K_CLIMB, cc, -1, 0, m.clips[cc].dur / std::max(0.3f, tm->trav.dur), false); else A.play(K_CLIMB, walk, -1, 0, 1.4f, true); }   // holds its end pose (no ragdoll in this game)
   else if (A.strike != s.meleeCount) { A.strike = s.meleeCount; A.play(K_ATTACK, attackClip(m, ce, s.meleeClip), -1, 0, e.attackRate, false, true); }
   else if (A.key == K_ATTACK && playing(1e9f) && !(lookK >= 0 && A.a == lookK && moving)) {}   // the swing plays out (EK: the look round gives way to the mount's stride)
@@ -1083,6 +1112,30 @@ int ar1SelfCheck() {
       for (auto& c : need) ok = ok && clips.count(c);
       ok = ok && nodes.count("mixamorig:Weapon") && nodes.count("sword"); msg = std::to_string(clips.size()) + " clips, the Weapon joint and the sword"; }
     chk(ok, "Paladin (PK1): AI type 51, Knight 4's two-handed clips and attacks, not in Assorted; " + msg); }
+  {   // KD1: knights' deaths vary: every death clip a knight type lists is in each of its GLBs (models here), and 24 deaths of one type
+    // (neighbouring slots, mixed hit directions) play more than one clip; a head hit picks a headshot clip where the model has one
+    const char* ids[] = {"knight", "knight4", "knight5", "knight6", "knight7", "knight8", "knight9", "knight10", "knight10e_foot", "knight_spear", "paladin", "paladin2",
+                         "samurai", "crusader", "chinese_soldier", "fallen_knight1", "fallen_knight2"};
+    int types = 0, models = 0, bad = 0; std::string worst;
+    for (const char* id : ids) {
+      int k = enemyTypeIndex(id); if (k < 0) { ++bad; worst = std::string(id) + ": no such type"; continue; } ++types;
+      const EnemyType& T = enemyType(k); std::vector<std::string> ms = T.models.empty() ? std::vector<std::string>{T.model} : T.models;
+      for (auto& mn : ms) {
+        std::ifstream f(contentDir() / "characters" / (mn + ".glb"), std::ios::binary); std::string g((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+        if (g.size() <= 28) continue; ++models;
+        uint32_t nn = 0; std::memcpy(&nn, g.data() + 12, 4); json J; try { J = json::parse(g.substr(20, nn)); } catch (...) {}
+        std::set<std::string> clips; for (auto& an : J.value("animations", json::array())) clips.insert(an.value("name", std::string()));
+        for (auto& c : T.deathClips) if (!clips.count(c)) { ++bad; worst = std::string(id) + " / " + mn + ": no clip '" + c + "'"; }
+        auto has = [&](int i) { return clips.count(T.deathClips[i]) > 0; };
+        std::set<int> seen; const vec3 dirs[] = {vec3(0, 0, -1), vec3(0, 0, 1), vec3(1, 0, 0), vec3(-1, 0, 0)};
+        for (int n = 0; n < 24; ++n) seen.insert(deathPickFor(T.deathClips, has, dirs[n % 4], false, n, n / 4));
+        if (seen.size() < 2) { ++bad; worst = std::string(id) + " / " + mn + ": 24 deaths, " + std::to_string(seen.size()) + " clip"; }
+        int hp = deathPickFor(T.deathClips, has, vec3(0, 0, -1), true, 3, 1);
+        bool anyHead = false; for (auto& c : T.deathClips) anyHead = anyHead || (clips.count(c) && c.find("headshot") != std::string::npos);
+        if (anyHead && (hp < 0 || T.deathClips[hp].find("headshot") == std::string::npos)) { ++bad; worst = std::string(id) + ": a head hit did not pick a headshot"; }
+      }
+    }
+    chk(bad == 0, "Knight deaths (KD1): " + std::to_string(types) + " types, " + std::to_string(models) + " models here: every listed death clip present, more than one clip over 24 deaths, headshots for head hits" + (bad ? "; " + worst : "")); }
   {   // PK2: Paladin 2: AI type 52, the Paladin's data on its own (local-only) model; with the model here, every clip it names is in it
     int p2 = enemyTypeIndex("paladin2"), pk = enemyTypeIndex("paladin"); bool ok = p2 >= 0 && pk >= 0 && (int)AiType::Paladin2 == 52 && kAiTypeCount > 52
       && std::string(aiTypeName(AiType::Paladin2)) == "Paladin 2" && enemyType(p2).model == "paladin_2" && enemyType(p2).attackClips == enemyType(pk).attackClips && enemyType(p2).weight == 0;

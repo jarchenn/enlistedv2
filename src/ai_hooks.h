@@ -14,6 +14,7 @@ int aiZombieModel(Game& g, int type = 0, int variant = 0);  // the character of 
 void aiZombieAssign(Game& g, Soldier& s);                  // EN1: model, draw scale, lean and body size for s.etype (the zombie rig when its own model is unusable)
 void aiZombiePose(Game& g, struct Soldier& s, float dt);
 float aiHorseHit(const Game& g, const Soldier& s, vec3 a, vec3 d, float maxT, int* zone = nullptr);   // DR1 zone: the capsule's (0 head, 1 body, 2 limb)   // HK3: where a ray meets the mounted knight's horse capsules (< 0: no hit)
+int aiZombieDeathPick(Game& g, Soldier& s);   // KD1 (zombie.cpp; host, at the death): the death clip's index in the type's list (hit direction, headshot, varied by slot / life), -1 none
 void aiZombieDead(Game& g, Soldier& s);   // HK2 (host): a dead mounted knight: the horse death decided, then the knight on foot at its end
 void gunBodyPose(Game& g, struct Soldier& s, float dt);
 vec3 weaponPartCentre(const struct WeaponDef& d, int role, vec3 def);   // DF1 gunbody.cpp: the centre of a gun's parts of one WPart role (weapon space; def without any)

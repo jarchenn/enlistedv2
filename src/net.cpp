@@ -390,7 +390,7 @@ static std::string snapshotPart(Game& g, int forPeer, const std::vector<int>& id
     w.u8((uint8_t)std::clamp(s.recoil * 255.0f, 0.0f, 255.0f)); w.u8((uint8_t)std::clamp(s.throwT < 0 ? 0.0f : s.throwT * 255.0f, 0.0f, 255.0f));
     w.u8((uint8_t)std::clamp(s.reloadTotal > 0 ? s.reload / s.reloadTotal * 255.0f : 0.0f, 0.0f, 255.0f));
     w.u8((uint8_t)(r.livesLeft < 0 ? 255 : r.livesLeft)); w.u8((uint8_t)std::min(250.0f, r.deadFor * 10)); w.u16((uint16_t)std::max(0, r.kills)); w.u16((uint16_t)std::max(0, r.deaths)); w.u16((uint16_t)(int16_t)std::clamp(r.score, -32000, 32000));
-    w.u16((uint16_t)(s.killer < 0 ? 0xffff : s.killer)); w.u8((uint8_t)(s.deathStyle | ((s.br.target >= 0 && !s.human) || g.t - s.lastShot < 1.5 ? 0x80 : 0))); w.u8((uint8_t)s.etype);   // EN1; AN1b: 0x80 = engaged (a bot with a target, or fired in the last 1.5 s): the client's aimed postures
+    w.u16((uint16_t)(s.killer < 0 ? 0xffff : s.killer)); w.u8((uint8_t)((s.deathStyle & 3) | ((std::clamp(s.deathPick + 1, 0, 31)) << 2) | ((s.br.target >= 0 && !s.human) || g.t - s.lastShot < 1.5 ? 0x80 : 0)));   // KD1: bits 2-6 the death clip pick + 1 w.u8((uint8_t)s.etype);   // EN1; AN1b: 0x80 = engaged (a bot with a target, or fired in the last 1.5 s): the client's aimed postures
     bool own = r.human && r.peer == forPeer;
     w.u8((uint8_t)((own ? 1 : 0) | ((std::clamp((int)std::lround(s.lean * 15.0f), -15, 15) + 16) << 1)));   // MV3: bits 1-5 the lean (-15..15)
     if (own) { w.u8((uint8_t)s.frags); w.u8((uint8_t)s.smokes); w.u16((uint16_t)s.ws.loaded); }
@@ -473,7 +473,7 @@ static void readSnapshot(Game& g, Net::Impl& d, const std::string& data, App& ap
     rulesNetProtect(g, s, fl & 128);   // W1: spawn protection (shimmer, shield icon, ring)
     if (s.zombie && etype != s.etype) { s.etype = etype; aiZombieAssign(g, s); }   // EN1: the host's enemy type
     s.hp = hp; s.weapon = s.zombie ? -1 : weapon < (int)app.weaponDefs.size() ? weapon : 0;   // G2: zombies carry nothing
-    s.killer = killer == 0xffff ? -1 : killer; s.deathStyle = dstyle & 0x7f; s.netEngaged = dstyle & 0x80;
+    s.killer = killer == 0xffff ? -1 : killer; s.deathStyle = dstyle & 3; s.deathPick = ((dstyle >> 2) & 31) - 1; s.netEngaged = dstyle & 0x80;   // KD1
     s.recoil = recoil; s.throwT = (fl & 64) ? thr : -1.0f; s.reload = (fl & 32) ? rel : 0; s.reloadTotal = (fl & 32) ? 1 : 0;
     s.swim = (fl & 6) == 6;   // 2|4: swimming (swim.cpp), drawn upright-tilted, not prone
     s.posture = s.swim ? Physics::STAND : (fl & 4) ? Physics::PRONE : (fl & 2) ? Physics::CROUCH : Physics::STAND;

@@ -712,6 +712,7 @@ void Game::killSoldier(int i, int killer, vec3 dir) {
   s.alive = false; s.diedAt = t; s.killer = killer; s.deathDir = dir; s.hp = 0;
   vec3 f = vec3(-std::sin(radians(s.yaw)), 0, -std::cos(radians(s.yaw)));
   s.deathStyle = glm::dot(f, dir) > 0.3f ? 1 : glm::dot(f, dir) < -0.3f ? 0 : 2;
+  s.deathPick = s.zombie ? aiZombieDeathPick(*this, s) : -1;   // KD1: needs deathDir and lastHow (set above / by damage())
   if (s.throwT >= 0 && !s.throwReleased) s.throwT = -1;   // cancelled before release: nothing spent
   if (s.agent >= 0) { Physics::destroyAgent(s.agent); s.agent = -1; }   // the corpse has no collision
   if (s.localPlayer && app.tanks.occupied) {   // TK1: died crewing a vehicle: its type comes back with the next life; the seat is cleared
