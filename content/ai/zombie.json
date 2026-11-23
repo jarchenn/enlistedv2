@@ -2475,7 +2475,6 @@
         ]
       },
       "sounds": {
-        "attack": "knight_attack", "attack_at": "blow",
         "contact": "knightattackcontact",
         "death": "knightdeath"
       },
@@ -2671,7 +2670,6 @@
         ]
       },
       "sounds": {
-        "attack": "knight_attack", "attack_at": "blow",
         "contact": "knightattackcontact",
         "death": "knightdeath"
       },
