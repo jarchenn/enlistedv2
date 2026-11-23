@@ -106,7 +106,8 @@ static void measureHold(WeaponDef& d, const std::vector<vec3>& P) {
 
 bool fireCurveAt(const WeaponDef& d, float t, float out[10]) {   // KF1
   const auto& c = d.fireCurve; if (c.empty()) { for (int k = 0; k < 10; ++k) out[k] = 0; return false; }
-  const float f = std::max(0.0f, t) * d.fireCurveFps; const int i = (int)f;
+  float f = t * d.fireCurveFps; if (!(f >= 0.0f)) f = 0.0f; f = std::min(f, (float)c.size());   // FG1l: clamped before the int cast: the fifth-shot fold asks for t = 1e9 s, and 3e10 overflowed (int) to INT_MIN: c[i] read far out of bounds (crash at 750 rpm, FG 42 ADS)
+  const int i = (int)f;
   if (i >= (int)c.size() - 1) { for (int k = 0; k < 10; ++k) out[k] = c.back()[k]; return false; }
   const float u = f - (float)i;
   for (int k = 0; k < 10; ++k) out[k] = c[i][k] + (c[i + 1][k] - c[i][k]) * u;
