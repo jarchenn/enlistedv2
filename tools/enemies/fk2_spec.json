@@ -1,0 +1,15 @@
+{"note": "FK2: Fallen Knight 2's clips, by key index in its 844-key take at 30 fps (chosen from the hips' travel, the hands' and feet's speeds and thumbnails of every fourth frame). Not cut: the back-step dodge (keys 576-632: the melee brain has no dodge)",
+ "max_tex": 2048,
+ "props": {"Shield": "E:/nmk/npcr_scratch/fk2/props/Shield.glb", "Helmet": "E:/nmk/npcr_scratch/fk2/props/Helmet.glb"},
+ "clips": [
+  {"name": "walk", "f0": 16, "f1": 95, "root": "drift"},
+  {"name": "walk_guard", "f0": 144, "f1": 247, "root": "drift"},
+  {"name": "run", "f0": 540, "f1": 560, "root": "pin"},
+  {"name": "idle", "f0": 444, "f1": 456, "root": "pin"},
+  {"name": "attack_leap", "f0": 296, "f1": 364, "root": "pin"},
+  {"name": "attack_charge", "f0": 370, "f1": 446, "root": "pin"},
+  {"name": "attack_bash", "f0": 452, "f1": 530, "root": "pin"},
+  {"name": "attack_slam", "f0": 636, "f1": 700, "root": "pin"},
+  {"name": "damage", "f0": 704, "f1": 732, "root": "pin"},
+  {"name": "death", "f0": 744, "f1": 840, "root": "keep"}
+ ]}
