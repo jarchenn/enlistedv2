@@ -56,6 +56,7 @@ struct St {
 };
 std::map<const WeaponDef*, St> gSt;
 const WeaponDef* gActive = nullptr;
+std::vector<std::pair<const WeaponDef*, uint64_t>> gRigUse; uint64_t gRigTick = 0;   // V2 riglru: loaded rigs and when each was last stepped
 vec3 jv(const json& a) { return vec3(a[0].get<float>(), a[1].get<float>(), a[2].get<float>()); }
 // the camera as it is when the frame is drawn (look, view kick and breathing are updated after the weapon step)
 mat4 camNow(const App& app) {
@@ -122,9 +123,30 @@ std::string animVmClipNow(const WeaponDef& d, float* time) {
   return it->second.clipName;
 }
 
+// V2 riglru: at most kRigKeep rigs stay on the GPU (the one in hand and the most recently held: a loadout's primary,
+// sidearm and one more never reload); the least recently stepped beyond that is released (textures, mesh, its skinned
+// instance) and loads again on its next equip, as at first use
+static void rigTouch(App& app, const WeaponDef& d) {
+  ++gRigTick; bool have = false;
+  for (auto& [w, t] : gRigUse) if (w == &d) { t = gRigTick; have = true; }
+  if (!have) gRigUse.push_back({&d, gRigTick});
+  constexpr size_t kRigKeep = 3;
+  while (app.R.perf.rigLru && gRigUse.size() > kRigKeep) {
+    auto old = std::min_element(gRigUse.begin(), gRigUse.end(), [](const auto& x, const auto& y) { return x.second < y.second; });
+    const WeaponDef* w = old->first; gRigUse.erase(old);
+    if (w == &d || !w->anim) continue;
+    auto it = gSt.find(w); if (it != gSt.end()) { it->second.inst.destroy(); gSt.erase(it); }
+    if (gActive == w) gActive = nullptr;
+    AnimVM& o = *w->anim; const long long before = gCharBytes.type + gCharBytes.tex;
+    o.model.destroy(); o.model = CharModel(); o.loaded = false; o.gunJoint = -1; o.slideJoint = -1; o.clip.clear();
+    logf("riglru: %s released (%.0f MB), %zu rigs kept", w->id.c_str(), (before - gCharBytes.type - gCharBytes.tex) / 1048576.0, gRigUse.size());
+  }
+}
+
 void animVmStep(App& app, const WeaponDef& d, WeaponState& s, float dt) {
   AnimVM& a = *d.anim;
   if (!ensureLoaded(a, d, app.R.perf.rigBC)) { animVmNotActive(); return; }
+  rigTouch(app, d);   // V2
   St& st = gSt[&d];
   if (!st.inst.model && !st.inst.create(a.model)) return;
   auto clip = [&](const std::string& n) { auto it = a.clip.find(n); return it == a.clip.end() ? -1 : it->second; };
@@ -223,7 +245,7 @@ void animVmStep(App& app, const WeaponDef& d, WeaponState& s, float dt) {
 }
 
 void animVmNotActive() { gActive = nullptr; }
-void animVmReset() { gActive = nullptr; gSt.clear(); }   // ED2: the weapon definitions are about to be rebuilt
+void animVmReset() { gActive = nullptr; for (auto& [w, st] : gSt) st.inst.destroy(); gSt.clear(); gRigUse.clear(); }   // V2: the skinned instances' buffers go with them   // ED2: the weapon definitions are about to be rebuilt
 
 bool animVmDraw(App& app, const WeaponDef& d) {
   auto it = gSt.find(&d);
