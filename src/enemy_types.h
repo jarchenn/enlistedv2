@@ -64,6 +64,7 @@ struct EnemyType {
   // nodes in "hide", the rider's, not drawn on it) and the slot goes on as foot_type, standing at foot_at; any other death plays
   // the type's death clips (the rider shot off)
   std::string horseDeathClip, footType; vec3 footAt{0}; std::vector<std::string> horseKinds, corpseHide;
+  std::string afterAttackClip;   // EK json "after_attack": {"clip"}: after each attack it stands and plays this clip (the Elk Knight looks round) before it moves or strikes again
   // HK3 json "horse_hp" (> 0: the horse has its own health; "hp" is then the rider's) and "horse_zones": [[joint, joint, radius m]]:
   // the horse's hit capsules on its own joints. A bullet hits whichever body it meets first; melee lands on the horse; a blast,
   // shell, fire or vehicle hurts both. The horse at 0: horse_death (the knight goes on foot with the rider's health left); the
