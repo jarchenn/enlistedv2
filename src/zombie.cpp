@@ -1085,7 +1085,7 @@ int ar1SelfCheck() {
   {   // PK2: Paladin 2: AI type 52, the Paladin's data on its own (local-only) model; with the model here, every clip it names is in it
     int p2 = enemyTypeIndex("paladin2"), pk = enemyTypeIndex("paladin"); bool ok = p2 >= 0 && pk >= 0 && (int)AiType::Paladin2 == 52 && kAiTypeCount > 52
       && std::string(aiTypeName(AiType::Paladin2)) == "Paladin 2" && enemyType(p2).model == "paladin_2" && enemyType(p2).attackClips == enemyType(pk).attackClips && enemyType(p2).weight == 0;
-    std::string msg = "model absent (local-only): data only, the Paladin stands in";
+    std::string msg = "model absent: data only, the Paladin stands in";
     std::ifstream f(contentDir() / "characters" / "paladin_2.glb", std::ios::binary); std::string g((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
     if (ok && g.size() > 28) { uint32_t nn = 0; std::memcpy(&nn, g.data() + 12, 4); json J; try { J = json::parse(g.substr(20, nn)); } catch (...) {}
       std::set<std::string> clips, nodes; for (auto& an : J.value("animations", json::array())) clips.insert(an.value("name", std::string()));
@@ -1094,7 +1094,7 @@ int ar1SelfCheck() {
       for (auto* v : {&T.idleClips, &T.attackClips, &T.damageClips, &T.deathClips}) need.insert(need.end(), v->begin(), v->end());
       for (auto& c : need) ok = ok && clips.count(c);
       ok = ok && nodes.count("mixamorig:Weapon") && nodes.count("sword"); msg = std::to_string(clips.size()) + " clips, the Weapon joint and the sword"; }
-    chk(ok, "Paladin 2 (PK2): AI type 52, the Paladin's clips and attacks, its local-only model (the Paladin without it); " + msg); }
+    chk(ok, "Paladin 2 (PK2): AI type 52, the Paladin's clips and attacks, its own model (the Paladin without it); " + msg); }
   {   // BC1: AI type 46 Boss; a local boss_choi type is invulnerable
     const int bi = enemyTypeIndex("boss_choi");
     chk((int)AiType::Boss == 46 && kAiTypeCount > 46 && std::string(aiTypeName(AiType::Boss)) == "Boss" && !Game::soldierBrain(AiType::Boss) && (bi < 0 || enemyType(bi).invuln),

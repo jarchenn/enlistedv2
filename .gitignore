@@ -157,5 +157,3 @@ content/characters/knight_3.glb
 # AR2: Archer 2 (its tunic and hood is CC-BY-NC-ND-4.0): local-only; AI type Archer 2 spawns Archer 1 without it
 content/characters/archer_2.glb
 content/characters/skin_operator_f1.glb
-# PK2: Paladin 2 (the heavy armour: its licence not confirmed yet): local-only; AI type Paladin 2 spawns the Paladin without it
-content/characters/paladin_2.glb
