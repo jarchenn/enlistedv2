@@ -188,6 +188,8 @@ struct GpuCrowd {
   GLuint progHash = 0, progMove = 0, progCull = 0, progCmd = 0, progFight = 0;
   GLuint pc = 0, pid = 0, dmg = 0, deaths = 0; int cx = 0, cz = 0; float ccell = 16; int frame = 0;   // GC3
   int spawned[2] = {0, 0}, dead[2] = {0, 0}, promoted[2] = {0, 0}; double nextDeaths = 0;
+  // GC6: the GPU -> CPU lists read without a stall: copied into a persistently mapped buffer behind a fence, read once it passed
+  struct Async { GLuint buf = 0; const uint8_t* map = nullptr; GLsync fence = nullptr; size_t size = 0; } aDeaths, aNear;
   GLuint nearBuf = 0; bool nearOn = false; std::vector<std::pair<glm::uvec4, vec4>> nearRecs;   // GC4
   std::vector<vec4> hum; bool armyInit = false; int goalFor = -2; double nextDemote = 0; std::vector<float> farFor;
   Grid g; bool gridOk = false; int nCmd = 0; std::vector<int> cmdFirstOf;   // per bucket: its first command
@@ -318,6 +320,26 @@ GLuint compileCS(const std::string& src, const char* name) {
   if (!ok) { logf("crowd: %s link failed", name); glDeleteProgram(pr); return 0; }
   return pr;
 }
+void asyncInit(GpuCrowd::Async& a, size_t size) {
+  glCreateBuffers(1, &a.buf); glNamedBufferStorage(a.buf, size, nullptr, GL_MAP_READ_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT | GL_CLIENT_STORAGE_BIT);
+  a.map = (const uint8_t*)glMapNamedBufferRange(a.buf, 0, size, GL_MAP_READ_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_COHERENT_BIT); a.size = size;
+}
+void asyncFree(GpuCrowd::Async& a) { if (a.fence) glDeleteSync(a.fence); if (a.buf) { glUnmapNamedBuffer(a.buf); glDeleteBuffers(1, &a.buf); } a = GpuCrowd::Async{}; }
+// the list's count and entries copied out, then the count cleared on the GPU (in order after the copy); false while one is in flight
+bool asyncKick(GpuCrowd::Async& a, GLuint src) {
+  if (!a.map || a.fence) return false;
+  glMemoryBarrier(GL_BUFFER_UPDATE_BARRIER_BIT);
+  glCopyNamedBufferSubData(src, a.buf, 0, 0, (GLsizeiptr)a.size);
+  const uint32_t z = 0; glNamedBufferSubData(src, 0, 4, &z);
+  a.fence = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+  return true;
+}
+const uint8_t* asyncReady(GpuCrowd::Async& a) {   // the copy's bytes once its fence passed (once), else null; never waits
+  if (!a.fence) return nullptr;
+  const GLenum r = glClientWaitSync(a.fence, 0, 0);
+  if (r != GL_ALREADY_SIGNALED && r != GL_CONDITION_SATISFIED) return nullptr;
+  glDeleteSync(a.fence); a.fence = nullptr; return a.map;
+}
 GLuint ssbo(size_t bytes, const void* data = nullptr) { GLuint b; glCreateBuffers(1, &b); glNamedBufferStorage(b, std::max<size_t>(bytes, 16), data, GL_DYNAMIC_STORAGE_BIT); return b; }
 constexpr int kCapB = kCap;   // a bucket's visible list (worst case: every unit one type and LOD)
 
@@ -370,6 +392,7 @@ bool ensureGpu(Game* g) {   // g null: the grid is already set (the self-test)
   C.height = ssbo(cells * 4, C.g.h.data()); C.costBuf = ssbo(cells * 2 * 4);
   C.vis = ssbo((size_t)kMaxTypes * 3 * kCapB * 4); C.visCnt = ssbo(kMaxTypes * 3 * 4);
   C.cx = std::max(1, (int)std::ceil(C.g.nx * C.g.cell / C.ccell)); C.cz = std::max(1, (int)std::ceil(C.g.nz * C.g.cell / C.ccell));
+  asyncInit(C.aDeaths, 4 + 65536 * 8); asyncInit(C.aNear, 16 + 1024 * 32);   // GC6
   C.nearBuf = ssbo(16 + 1024 * 32); { const uint32_t z = 0; glClearNamedBufferData(C.nearBuf, GL_R32UI, GL_RED_INTEGER, GL_UNSIGNED_INT, &z); }
   C.pc = ssbo((size_t)2 * C.cx * C.cz * 4); C.pid = ssbo((size_t)2 * C.cx * C.cz * 4); C.dmg = ssbo(kCap * 4); C.deaths = ssbo(4 + 65536 * 8);
   { const uint32_t z = 0; glClearNamedBufferData(C.dmg, GL_R32UI, GL_RED_INTEGER, GL_UNSIGNED_INT, &z); glClearNamedBufferData(C.deaths, GL_R32UI, GL_RED_INTEGER, GL_UNSIGNED_INT, &z); }
@@ -597,6 +620,7 @@ void crowdGoal(Game& g, int team, vec3 goal) { if (team < 0 || team > 1) return;
 
 void crowdReset() {
   for (auto& [k, t] : C.types) crowdDestroy(t);
+  asyncFree(C.aDeaths); asyncFree(C.aNear);   // GC6
   for (GLuint b : {C.units, C.sim, C.cnt, C.idx, C.height, C.costBuf, C.vis, C.visCnt, C.cmd, C.cmdBucket, C.pc, C.pid, C.dmg, C.deaths, C.nearBuf}) if (b) glDeleteBuffers(1, &b);
   for (GLuint p : {C.progHash, C.progMove, C.progCull, C.progCmd, C.progFight}) if (p) glDeleteProgram(p);
   C = GpuCrowd{};
@@ -630,12 +654,7 @@ static void simPasses(float dt) {   // hash, fight, move (+ the near list on eve
   { const int nh = std::min<int>(16, (int)C.hum.size()); glUniform1i(glGetUniformLocation(C.progMove, "uNH"), nh); if (nh) glUniform4fv(glGetUniformLocation(C.progMove, "uHum"), nh, glm::value_ptr(C.hum[0]));
     C.nearOn = nh > 0 && C.frame % 15 == 0; glUniform1i(glGetUniformLocation(C.progMove, "uNearOn"), C.nearOn ? 1 : 0); }   // GC4: the near list on every 15th frame
   glDispatchCompute(groups, 1, 1); glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-  if (C.nearOn) {   // GC4: read the frame's near list now (<= 1024 x 32 B) and restart it
-    uint32_t nn = 0; glGetNamedBufferSubData(C.nearBuf, 0, 4, &nn); nn = std::min<uint32_t>(nn, 1024); C.nearRecs.clear();
-    if (nn) { std::vector<uint32_t> raw((size_t)nn * 8); glGetNamedBufferSubData(C.nearBuf, 16, raw.size() * 4, raw.data());
-              for (uint32_t k = 0; k < nn; ++k) { glm::uvec4 a(raw[k * 8], raw[k * 8 + 1], raw[k * 8 + 2], raw[k * 8 + 3]); vec4 p; std::memcpy(&p, &raw[k * 8 + 4], 16); C.nearRecs.push_back({a, p}); }
-              const uint32_t z = 0; glNamedBufferSubData(C.nearBuf, 0, 4, &z); }
-  }
+  if (C.nearOn && !asyncKick(C.aNear, C.nearBuf)) { const uint32_t z = 0; glNamedBufferSubData(C.nearBuf, 0, 4, &z); }   // GC6: copied out, read when ready (a list still in flight: this one dropped)
 }
 static void readDeaths() {   // GC3: the deaths so far, then the list restarts
   uint32_t nd = 0; glGetNamedBufferSubData(C.deaths, 0, 4, &nd); nd = std::min<uint32_t>(nd, 65536);
@@ -649,6 +668,15 @@ void crowdFrame(Game& g) {
   const float dt = C.lastT < 0 ? 0.0f : (float)std::clamp(g.t - C.lastT, 0.0, 0.1); C.lastT = g.t;
   testSource(g);
   if (!C.units || (C.n == 0 && C.stageU.empty()) || !C.progMove) return;
+  // GC6: lists from earlier frames whose copies have landed (no stall)
+  if (const uint8_t* m = asyncReady(C.aNear)) {
+    uint32_t nn; std::memcpy(&nn, m, 4); nn = std::min<uint32_t>(nn, 1024); C.nearRecs.clear();
+    for (uint32_t k = 0; k < nn; ++k) { uint32_t a[4]; vec4 p; std::memcpy(a, m + 16 + k * 32, 16); std::memcpy(&p, m + 16 + k * 32 + 16, 16); C.nearRecs.push_back({glm::uvec4(a[0], a[1], a[2], a[3]), p}); }
+  }
+  if (const uint8_t* m = asyncReady(C.aDeaths)) {
+    uint32_t nd; std::memcpy(&nd, m, 4); nd = std::min<uint32_t>(nd, 65536);
+    for (uint32_t k = 0; k < nd; ++k) { uint32_t tm; std::memcpy(&tm, m + 4 + k * 8 + 4, 4); C.dead[std::min<uint32_t>(tm, 1)]++; }
+  }
   uploadStaged(); bindAll(); ++C.frame;
   const GLuint groups = (GLuint)((C.n + 127) / 128); const uint32_t zero = 0;
   if (dt > 0) simPasses(dt);
@@ -664,7 +692,7 @@ void crowdFrame(Game& g) {
   glDispatchCompute((GLuint)((C.nCmd + 63) / 64), 1, 1);
   glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_COMMAND_BARRIER_BIT | GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT);
   glUseProgram(0);
-  if (g.t >= C.nextDeaths || g.t + 1 < C.nextDeaths) { C.nextDeaths = g.t + 0.25; readDeaths(); }   // GC3: 4x a second
+  if ((g.t >= C.nextDeaths || g.t + 1 < C.nextDeaths) && asyncKick(C.aDeaths, C.deaths)) C.nextDeaths = g.t + 0.25;   // GC3 / GC6: 4x a second, without a stall
   { static double nextLog = 0; if (g.t >= nextLog || g.t + 10 < nextLog) { nextLog = g.t + 5;   // a status line every 5 s (a small read back)
       std::vector<uint32_t> vc(kMaxTypes * 3); glGetNamedBufferSubData(C.visCnt, 0, vc.size() * 4, vc.data()); std::string b;
       for (int k = 0; k < (int)C.typeKey.size() * 3; ++k) b += (k ? " " : "") + std::to_string(vc[k]);
