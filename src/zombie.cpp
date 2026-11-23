@@ -1064,10 +1064,10 @@ int ar1SelfCheck() {
     chk((int)AiType::OperatorF == 44 && kAiTypeCount > 44 && std::string(aiTypeName(AiType::OperatorF)) == "Giant Operator" && (Game::soldierBrain(AiType::OperatorF) || enemyTypeIndex("operator_f_idle") >= 0) && plain && of.value("scale", 0.0f) == 1.13f
         && ml.size() == 2 && ml[0] == "skin_operator_f1" && ml[1] == "skin_operator" && C.value("hold_bodies", json::object()).value("skin_operator_f1", std::string()) == "allied_body",
         "Giant Operator (OPF1 / BC1 / BC5): AI type 44, a soldier brain at 1.13x, a head taller than the player (or, with its local idle model, a stationary melee-brain type at 2.04 m); its own body first and the operator body when that file is absent; the Operators keep theirs"); }
-  {   // LT1: AI type 50 Letholdus; with its local type, sword attacks from the right hand and no shield block among its hit clips
-    const int li = enemyTypeIndex("letholdus"); bool ok = (int)AiType::Letholdus == 50 && kAiTypeCount > 50 && std::string(aiTypeName(AiType::Letholdus)) == "Letholdus" && !Game::soldierBrain(AiType::Letholdus);
+  {   // LT1: AI type 50 Crusader 2 (Letholdus); with its local type, sword attacks from the right hand and no shield block among its hit clips
+    const int li = enemyTypeIndex("crusader2"); bool ok = (int)AiType::Crusader2 == 50 && kAiTypeCount > 50 && std::string(aiTypeName(AiType::Crusader2)) == "Crusader 2" && !Game::soldierBrain(AiType::Crusader2);
     if (li >= 0) { const EnemyType& t = enemyType(li); ok = ok && t.model == "letholdus" && !t.attackSpecs.empty(); for (auto& c : t.damageClips) ok = ok && c.find("block") == std::string::npos; }
-    chk(ok, std::string("Letholdus (LT1): AI type 50, melee brain; ") + (li >= 0 ? "local type letholdus: sword attacks, no shield block" : "model absent (local-only): Knight 1")); }
+    chk(ok, std::string("Crusader 2 (LT1): AI type 50, melee brain; ") + (li >= 0 ? "local type crusader2 (Letholdus): sword attacks, no shield block" : "model absent (local-only): Knight 1")); }
   {   // BC1: AI type 46 Boss; a local boss_choi type is invulnerable
     const int bi = enemyTypeIndex("boss_choi");
     chk((int)AiType::Boss == 46 && kAiTypeCount > 46 && std::string(aiTypeName(AiType::Boss)) == "Boss" && !Game::soldierBrain(AiType::Boss) && (bi < 0 || enemyType(bi).invuln),

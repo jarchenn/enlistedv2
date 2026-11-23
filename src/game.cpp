@@ -288,7 +288,7 @@ void Game::setupSlotSoldier(const RosterSlot& rs, AiType ait, int variant, int& 
             : ait == AiType::FallenKnight2 ? std::max(0, enemyTypeIndex(fs::exists(contentDir() / "characters" / "fallen_knight_2.glb") ? "fallen_knight2" : "fallen_knight1"))   // FK2: Knight 1 at the Fallen Knight's size were its model missing
             : ait == AiType::FallenKnight ? std::max(0, enemyTypeIndex(fs::exists(contentDir() / "characters" / "knight.glb") ? "fallen_knight" : "fallen_knight1"))   // FK1: the Brother Knight is local-only: Knight 1 at its size without it
             : ait == AiType::OperatorF ? std::max(0, enemyTypeIndex("operator_f_idle"))   // BC1: the Giant Operator on the melee brain only with its local idle model (Game::soldierBrain)
-            : ait == AiType::Letholdus ? std::max(0, enemyTypeIndex(fs::exists(contentDir() / "characters" / "letholdus.glb") ? "letholdus" : "knight"))   // LT1: local-only: Knight 1 without it
+            : ait == AiType::Crusader2 ? std::max(0, enemyTypeIndex(fs::exists(contentDir() / "characters" / "letholdus.glb") ? "crusader2" : "knight"))   // LT1: Letholdus, local-only: Knight 1 without it
             : ait == AiType::Crusader ? std::max(0, enemyTypeIndex(fs::exists(contentDir() / "characters" / "crusader.glb") ? "crusader" : "knight5"))   // CRU1: Knight 5 were its model missing
             : ait == AiType::Samurai ? std::max(0, enemyTypeIndex("samurai"))   // SAM1
             : ait == AiType::ElkKnight ? std::max(0, enemyTypeIndex(fs::exists(contentDir() / "characters" / "knight_10_elk.glb") && fs::exists(contentDir() / "characters" / "knight_10_elk_foot.glb") ? "knight10e" : "knight10m"))   // EK: the Mounted Knight without its two models
