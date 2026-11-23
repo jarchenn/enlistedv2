@@ -12,7 +12,7 @@ def load(p):
     b = open(p, 'rb').read(); assert b[:4] == b'glTF'
     jl = struct.unpack('<I', b[12:16])[0]; J = json.loads(b[20:20 + jl]); bl = struct.unpack('<I', b[20 + jl:24 + jl])[0]
     return J, bytearray(b[28 + jl:28 + jl + bl])
-def key(n): return re.sub(r'^b_mixamorig\d*_', '', n or '')
+def key(n): return re.sub(r'^(b_mixamorig\d*_|mixamorig\d*:)', '', n or '')   # (a raw Mixamo GLB's joints too: the knight's)
 def q2m(q):
     x, y, z, w = np.moveaxis(q, -1, 0); return np.stack([np.stack([1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w)], -1),
                                                     np.stack([2 * (x * y + z * w), 1 - 2 * (x * x + z * z), 2 * (y * z - x * w)], -1),

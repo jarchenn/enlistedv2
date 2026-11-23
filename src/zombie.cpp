@@ -1068,6 +1068,15 @@ int ar1SelfCheck() {
     const int bi = enemyTypeIndex("boss_choi");
     chk((int)AiType::Boss == 46 && kAiTypeCount > 46 && std::string(aiTypeName(AiType::Boss)) == "Boss" && !Game::soldierBrain(AiType::Boss) && (bi < 0 || enemyType(bi).invuln),
         "Boss (BC1): AI type 46, melee brain; boss_choi (local-only) invulnerable"); }
+  {   // SAM1: AI type 48 Samurai: a knight in class and health, five attacks on the katana's own bone, every clip it names in the GLB
+    int sk = enemyTypeIndex("samurai"), k1 = enemyTypeIndex("knight"); bool ok = sk >= 0 && k1 >= 0; std::set<std::string> names; bool inMix = false; for (auto& [id, w] : zcfg().assorted) inMix = inMix || id == "samurai";
+    if (ok) { const EnemyType& t = enemyType(sk); std::ifstream f(contentDir() / "characters" / (t.model + ".glb"), std::ios::binary); std::string g((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+      if (g.size() > 20) { uint32_t nn = 0; std::memcpy(&nn, g.data() + 12, 4); json J; try { J = json::parse(g.substr(20, nn)); } catch (...) {} for (auto& x : J.value("animations", json::array())) names.insert(x.value("name", std::string())); }
+      std::vector<std::string> need = t.walkClips; need.push_back(t.runClip); for (auto* v : {&t.idleClips, &t.attackClips, &t.damageClips, &t.deathClips}) need.insert(need.end(), v->begin(), v->end());
+      for (auto& c : need) ok = ok && names.count(c);
+      ok = ok && t.hp == enemyType(k1).hp && t.attackSpecs.size() == 5 && t.attackClips.size() == 5 && t.runWithin > 1000 && !inMix; for (auto& x : t.attackSpecs) ok = ok && x.bone == "Katana" && x.hasAt; }
+    chk(ok && (int)AiType::Samurai == 48 && std::string(aiTypeName(AiType::Samurai)) == "Samurai" && !Game::soldierBrain(AiType::Samurai),
+        "Samurai (SAM1): AI type 48, the melee brain, a knight's health, always runs, five attacks struck from the katana's bone, every clip it names in its GLB (" + std::to_string(names.size()) + " clips)"); }
   {   // GR1: the fire curve's overlapping shots add, each x its weight; the rod is the furthest back among them; past the end a shot is off the curve
     WeaponDef d; d.fireCurveFps = 10; d.fireCurve = {{}, {}, {}}; d.fireCurve[1][6] = 2; d.fireCurve[1][9] = 0.08f;   // muzzle up 2 deg and the rod back at 0.1 s
     WeaponState w; w.curveFolded[0] = w.curveFolded[1] = false; w.curveAge[0] = 0.1f; w.curveGain[0] = 1; w.curveAge[1] = 0.05f; w.curveGain[1] = 0.5f;
