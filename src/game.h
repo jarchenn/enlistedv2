@@ -73,6 +73,7 @@ struct Soldier {
   float meleeKeep = 0;   // MK2 kit "melee_keep_m": back away (firing) from a melee enemy closer than this
   bool standFire = false;   // RB6 kit "lmg_standing": a belt-fed gun fired standing and on the move, without the crouch or the standing spread
   float meleeWind = -1; double meleeReady = 0;   // G2: zombie strike wind-up (s, < 0 = none), next strike allowed at Game::t
+  double lookUntil = 0;   // EK: after_attack: standing to look round until Game::t
   int meleeCount = 0, meleeClip = 0; AnimPlayer anim;   // G2: strikes started, attack clip of the current one; clip state (zombie.cpp)
   bool localPlayer = false, human = false; int peer = -1;
   int agent = -1;                            // physics agent (bots, remote humans); the local player uses the explore character

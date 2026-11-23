@@ -106,6 +106,7 @@ const ZombieCfg& zcfg() {
           strs(h, "kinds", t.horseKinds); strs(h, "hide", t.corpseHide);
         }
         t.horseHp = std::max(0.0f, e.value("horse_hp", 0.0f));   // HK3
+        if (e.contains("after_attack") && e["after_attack"].is_object()) t.afterAttackClip = e["after_attack"].value("clip", std::string());   // EK
         if (e.contains("death_side") && e["death_side"].is_array() && e["death_side"].size() == 2) { t.deathRight = e["death_side"][0].get<std::string>(); t.deathLeft = e["death_side"][1].get<std::string>(); }   // HK4
         for (auto& z : e.value("horse_zones", json::array())) if (z.is_array() && (z.size() == 3 || z.size() == 4)) t.horseZones.push_back({z[0].get<std::string>(), z[1].get<std::string>(), z[2].get<float>(), z.size() == 4 ? z[3].get<int>() : 1});
         t.capsuleH = e.value("capsule_height_m", t.capsuleH); t.capsuleR = e.value("capsule_radius_m", t.capsuleR);
@@ -598,6 +599,8 @@ void aiZombieStep(Game& G, Soldier& s, float dt) {
   m.zSpeed = L || (best && zLenXZ(best->feet - s.feet) < e.runWithin) ? e.run : e.walk;   // a pack follower keeps the pack's pace
   if (s.npc && !best && !L) npcStep(G, *A, s, m, e);   // NPC1: no one to fight: flee or wander
   if (G.t < s.staggerUntil) { m.speed = SPD_STOP; b.why = "zombie: staggered"; }
+  if (s.lookUntil > G.t + 30.0) s.lookUntil = 0;   // a new match restarts the clock
+  if (G.t < s.lookUntil && s.meleeWind < 0) { m.speed = SPD_STOP; b.why = "zombie: looking round after the blow"; }   // EK: after_attack: it stands while that clip plays
   if (e.warmup > 0) {   // KG3: from a standstill it walks warmup_s before the run (reset while it stands or barely moves)
     if (m.warmT < 0 || m.speed == SPD_STOP || s.speed < 0.3f * e.walk) m.warmT = G.t;
     if (G.t - m.warmT < e.warmup) m.zSpeed = std::min(m.zSpeed, e.walk);
@@ -753,6 +756,8 @@ void aiZombieStep(Game& G, Soldier& s, float dt) {
     if (s.meleeWind >= wu + r.post) {
       int k = attackClip(*G.models[s.model], clipsOf(s), s.meleeClip); float rest = k >= 0 ? (G.models[s.model]->clips[k].dur - G.models[s.model]->clips[k].swing) / e.attackRate : 0.0f;
       s.meleeWind = -1; s.meleeReady = G.t + std::max(e.cooldown, rest);
+      if (!e.afterAttackClip.empty()) { int lk = findClip(*G.models[s.model], e.afterAttackClip.c_str());   // EK: then the look round: it stands, no strike till it ends
+        if (lk >= 0) { s.lookUntil = G.t + rest + G.models[s.model]->clips[lk].dur; s.meleeReady = std::max(s.meleeReady, s.lookUntil); } }
     }
   } else if (s.meleeWind >= 0) {
     float wu = windupOf(G, s);
@@ -860,7 +865,7 @@ void aiZombieDead(Game& G, Soldier& s) {
   s.etype = ft; s.mountDeath = -1; aiZombieAssign(G, s);
   const EnemyType& f = enemyType(ft);
   s.feet = at; s.alive = true; s.flat = false; s.hp = e.horseHp > 0 && s.riderHpKeep > 0 ? std::min(f.hp, s.riderHpKeep) : f.hp; s.horseHp = 0; s.killer = -1;   // HK3: the rider's health left s.staggerUntil = 0; s.posture = Physics::STAND; s.lastHow.clear();
-  s.meleeWind = -1; s.meleeReady = G.t + 0.5; s.poseFrom = -1; ++s.lifeId;
+  s.meleeWind = -1; s.meleeReady = G.t + 0.5; s.lookUntil = 0; s.poseFrom = -1; ++s.lifeId;
   if (s.agent >= 0) Physics::destroyAgent(s.agent);
   s.agent = f.capsuleH > 0 ? Physics::createAgent(at, f.capsuleH, f.capsuleR) : Physics::createAgent(at);
   s.br.aimYaw = s.yaw;
@@ -905,6 +910,7 @@ void aiZombiePose(Game& G, Soldier& s, float dt) {
   else if (climbing) { int cc = ce.climbClip.empty() ? -1 : findClip(m, ce.climbClip); if (cc >= 0) A.play(K_CLIMB, cc, -1, 0, m.clips[cc].dur / std::max(0.3f, tm->trav.dur), false); else A.play(K_CLIMB, walk, -1, 0, 1.4f, true); }   // holds its end pose (no ragdoll in this game)
   else if (A.strike != s.meleeCount) { A.strike = s.meleeCount; A.play(K_ATTACK, attackClip(m, ce, s.meleeClip), -1, 0, e.attackRate, false, true); }
   else if (A.key == K_ATTACK && playing(1e9f)) {}   // the swing plays out
+  else if (A.key == K_ATTACK && !e.afterAttackClip.empty() && A.look != A.strike && findClip(m, e.afterAttackClip.c_str()) >= 0) { A.look = A.strike; A.play(K_ATTACK, findClip(m, e.afterAttackClip.c_str()), -1, 0, 1, false, true); }   // EK: the swing done, the look round (as the host's lookUntil; clients from the same strike count)
   else if (hurt) A.play(K_DAMAGE, pickAt(ce.damageClips, s.slot + (int)s.hp), -1, 0, 1, false, true);   // EN2: a hit reaction of the list
   else if (A.key == K_DAMAGE && playing(c.flinch)) {}
   else if (s.speed > std::max(0.3f, 0.05f * s.eScale) * (A.key == K_LOCO ? 0.7f : 1.3f) && walk >= 0) {   // AN1 step 7: hysteresis (no idle / walk flicker at the threshold); a giant shuffling slower than that stands (its stride would freeze mid-step)
@@ -1031,6 +1037,28 @@ int ar1SelfCheck() {
           for (auto* c : {&t.walkClips[0], &t.walkClips[1], &t.runClip}) { loopSeam(t.model, *c, sm, du, fd); ok = ok && fd && sm < 1e-3f; worst = std::max(worst, sm); }
           msg = std::to_string(names.size()) + " clips, largest loop seam " + std::to_string(worst); } }
       chk(ok, "Fallen Knight 2 (FK2): AI type 45, the Fallen Knight's health, not in Assorted, four attacks, ground speeds for walk / guarded walk / run; " + msg); }
+    {   // EK: the Elk Knight: AI type 47; on foot as knight10e_foot (the Spear Knight's thrusts); look_around after each attack; with its two
+      // models here: every clip either type names is in its GLB, the elk's hit capsules are on joints the model has, the foot type has its stabs
+      int ek = enemyTypeIndex("knight10e"), ef = enemyTypeIndex("knight10e_foot"), sk = enemyTypeIndex("knight_spear");
+      bool ok = ek >= 0 && ef >= 0 && sk >= 0 && (int)AiType::ElkKnight == 47 && std::string(aiTypeName(AiType::ElkKnight)) == "Elk Knight" && enemyType(ek).footType == "knight10e_foot"
+        && enemyType(ek).afterAttackClip == "look_around" && enemyType(ek).horseHp > 0 && enemyType(ek).horseZones.size() >= 10 && enemyType(ek).weight == 0 && enemyType(ef).weight == 0
+        && enemyType(ef).attackClips == enemyType(sk).attackClips && enemyType(ek).attackSpecs.size() == 2;
+      std::string msg = "models absent: data only";
+      auto glbNames = [](const std::string& model, std::set<std::string>& clips, std::set<std::string>& nodes) {
+        std::ifstream f(contentDir() / "characters" / (model + ".glb"), std::ios::binary); std::string g((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+        if (g.size() <= 28) return false; uint32_t nn = 0; std::memcpy(&nn, g.data() + 12, 4); json J; try { J = json::parse(g.substr(20, nn)); } catch (...) { return false; }
+        for (auto& an : J.value("animations", json::array())) clips.insert(an.value("name", std::string()));
+        for (auto& nd : J.value("nodes", json::array())) nodes.insert(nd.value("name", std::string())); return true; };
+      std::set<std::string> c1, n1, c2, n2;
+      if (ok && glbNames(enemyType(ek).model, c1, n1) && glbNames(enemyType(ef).model, c2, n2)) {
+        for (auto [t, cl] : {std::pair<int, std::set<std::string>*>{ek, &c1}, {ef, &c2}}) { const EnemyType& T = enemyType(t); std::vector<std::string> need = T.walkClips; need.push_back(T.runClip);
+          for (auto* v : {&T.idleClips, &T.attackClips, &T.damageClips, &T.deathClips}) need.insert(need.end(), v->begin(), v->end());
+          for (auto& c : need) ok = ok && cl->count(c); }
+        ok = ok && c1.count("look_around") && c1.count(enemyType(ek).horseDeathClip);
+        for (auto& z : enemyType(ek).horseZones) ok = ok && n1.count(z.a) && n1.count(z.b);
+        for (auto& h : enemyType(ek).corpseHide) ok = ok && n1.count(h);
+        msg = std::to_string(c1.size()) + " clips mounted, " + std::to_string(c2.size()) + " on foot"; }
+      chk(ok, "Elk Knight (EK): AI type 47, the elk's own health and hit capsules, look_around after each attack, on foot with the Spear Knight's thrusts; " + msg); }
   }
   {   // OPF1: AI type 44 Giant Operator: the Operators' brain in a body of its own at 1.5x; the local-only model first, the operator body after it
     json C; try { std::ifstream f(contentDir() / "ai" / "combat.json"); C = json::parse(f); } catch (...) {} const json of = C.value("operator_f", json::object()), ml = of.value("models", json::array());
@@ -1040,7 +1068,7 @@ int ar1SelfCheck() {
         "Giant Operator (OPF1 / BC1): AI type 44, a soldier brain at 3x (or, with its local idle model, a stationary melee-brain type); its own body first and the operator body when that file is absent; the Operators keep theirs"); }
   {   // BC1: AI type 46 Boss; a local boss_choi type is invulnerable
     const int bi = enemyTypeIndex("boss_choi");
-    chk((int)AiType::Boss == 46 && kAiTypeCount == 47 && std::string(aiTypeName(AiType::Boss)) == "Boss" && !Game::soldierBrain(AiType::Boss) && (bi < 0 || enemyType(bi).invuln),
+    chk((int)AiType::Boss == 46 && kAiTypeCount > 46 && std::string(aiTypeName(AiType::Boss)) == "Boss" && !Game::soldierBrain(AiType::Boss) && (bi < 0 || enemyType(bi).invuln),
         "Boss (BC1): AI type 46, melee brain; boss_choi (local-only) invulnerable"); }
   {   // GR1: the fire curve's overlapping shots add, each x its weight; the rod is the furthest back among them; past the end a shot is off the curve
     WeaponDef d; d.fireCurveFps = 10; d.fireCurve = {{}, {}, {}}; d.fireCurve[1][6] = 2; d.fireCurve[1][9] = 0.08f;   // muzzle up 2 deg and the rod back at 0.1 s
