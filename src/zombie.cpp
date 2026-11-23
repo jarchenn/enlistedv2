@@ -1117,6 +1117,25 @@ int ar1SelfCheck() {
       ok = ok && t.hp == enemyType(k1).hp && t.attackSpecs.size() == 5 && t.attackClips.size() == 5 && t.runWithin > 1000 && !inMix; for (auto& x : t.attackSpecs) ok = ok && x.bone == "Katana" && x.hasAt; }
     chk(ok && (int)AiType::Samurai == 48 && std::string(aiTypeName(AiType::Samurai)) == "Samurai" && !Game::soldierBrain(AiType::Samurai),
         "Samurai (SAM1): AI type 48, the melee brain, a knight's health, always runs, five attacks struck from the katana's bone, every clip it names in its GLB (" + std::to_string(names.size()) + " clips)"); }
+  {   // CS1: AI type 54 Chinese Soldier: Knight 4's entry on its own model, the strike near the yari's tip on the Weapon bone, the Spear Knight's reach
+    int ck = enemyTypeIndex("chinese_soldier"), k4 = enemyTypeIndex("knight4"), ks = enemyTypeIndex("knight_spear"); bool ok = ck >= 0 && k4 >= 0 && ks >= 0, inMix = false; for (auto& [id, w] : zcfg().assorted) inMix = inMix || id == "chinese_soldier"; std::set<std::string> names;
+    if (ok) { const EnemyType& t = enemyType(ck), &k = enemyType(k4); ok = t.hp == k.hp && t.attackClips == k.attackClips && t.attackSpecs.size() == k.attackSpecs.size() && !inMix && t.reach > k.reach && std::fabs(t.reach - enemyType(ks).reach) < 0.1f;
+      for (auto& x : t.attackSpecs) ok = ok && x.bone == "mixamorig:Weapon" && x.hasAt && glm::length(x.at) > 140.0f && glm::length(x.at) < 170.0f;
+      std::ifstream f(contentDir() / "characters" / (t.model + ".glb"), std::ios::binary); std::string g(20, 0); f.read(g.data(), 20); uint32_t nn = 0; bool bone = false;
+      if (f.gcount() == 20) { std::memcpy(&nn, g.data() + 12, 4); std::string js(nn, 0); f.read(js.data(), nn); json J; try { J = json::parse(js); } catch (...) {} for (auto& x : J.value("animations", json::array())) names.insert(x.value("name", std::string()));
+        for (auto& n : J.value("nodes", json::array())) bone = bone || n.value("name", std::string()) == "mixamorig:Weapon"; }
+      std::vector<std::string> need = t.walkClips; need.push_back(t.runClip); for (auto* v : {&t.idleClips, &t.attackClips, &t.damageClips, &t.deathClips}) need.insert(need.end(), v->begin(), v->end());
+      for (auto& c : need) ok = ok && names.count(c); ok = ok && bone; }
+    chk(ok && (int)AiType::ChineseSoldier == 54 && std::string(aiTypeName(AiType::ChineseSoldier)) == "Chinese Soldier", "Chinese Soldier (CS1): AI type 54, Knight 4's health and swings, the strike near the yari's tip on its Weapon bone, the Spear Knight's reach, every clip it names in its GLB (" + std::to_string(names.size()) + " clips)"); }
+  {   // RA1: AI type 53 Roman Archer: Archer 2's entry (ranged shot, class, health, no attack voice) on a local-only model; with the model here, every clip it names
+    int rk = enemyTypeIndex("roman_archer"), a2 = enemyTypeIndex("archer2"); bool ok = rk >= 0 && a2 >= 0; std::set<std::string> names; std::string msg = "model absent (local-only): data only";
+    if (ok) { const EnemyType& t = enemyType(rk), &k = enemyType(a2); ok = t.hp == k.hp && t.attackClips == k.attackClips && t.sndAttack.empty() && t.model == "roman_archer" && !t.attackSpecs.empty() && t.attackSpecs[0].shoot && t.attackSpecs[0].swing > 0.6f && t.attackSpecs[0].swing < 0.72f;
+      std::ifstream f(contentDir() / "characters" / (t.model + ".glb"), std::ios::binary); std::string g(20, 0); f.read(g.data(), 20); uint32_t nn = 0; bool bones = false;
+      if (f.gcount() == 20) { std::memcpy(&nn, g.data() + 12, 4); std::string js(nn, 0); f.read(js.data(), nn); json J; try { J = json::parse(js); } catch (...) {} for (auto& x : J.value("animations", json::array())) names.insert(x.value("name", std::string()));
+        for (auto& n : J.value("nodes", json::array())) bones = bones || n.value("name", std::string()) == "mixamorig:Hips";
+        std::vector<std::string> need = t.walkClips; need.push_back(t.runClip); for (auto* v : {&t.idleClips, &t.attackClips, &t.damageClips, &t.deathClips}) need.insert(need.end(), v->begin(), v->end());
+        for (auto& c : need) ok = ok && names.count(c); ok = ok && bones; msg = std::to_string(names.size()) + " clips in its GLB, every one it names; joints under Mixamo names"; } }
+    chk(ok && (int)AiType::RomanArcher == 53 && std::string(aiTypeName(AiType::RomanArcher)) == "Roman Archer", "Roman Archer (RA1): AI type 53, Archer 2's health and attacks, the shot released at 0.667 of its clip, no attack voice; " + msg); }
   {   // GR1: the fire curve's overlapping shots add, each x its weight; the rod is the furthest back among them; past the end a shot is off the curve
     WeaponDef d; d.fireCurveFps = 10; d.fireCurve = {{}, {}, {}}; d.fireCurve[1][6] = 2; d.fireCurve[1][9] = 0.08f;   // muzzle up 2 deg and the rod back at 0.1 s
     WeaponState w; w.curveFolded[0] = w.curveFolded[1] = false; w.curveAge[0] = 0.1f; w.curveGain[0] = 1; w.curveAge[1] = 0.05f; w.curveGain[1] = 0.5f;
