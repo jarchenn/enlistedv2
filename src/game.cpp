@@ -254,6 +254,12 @@ bool Game::begin(std::string& err) {
 }
 
 // EGG1: one roster slot's soldier from its AI type (Game::begin per slot; the Creative spawn eggs per egg). variant: the
+// IS1: a type whose model is local-only: that type when its model file and its (zombie_local.json) entry are both there, else the fallback
+static int localTypeOr(const char* id, const char* model, const char* fallback) {
+  const int k = fs::exists(contentDir() / "characters" / (std::string(model) + ".glb")) ? enemyTypeIndex(id) : -1;
+  return k >= 0 ? k : std::max(0, enemyTypeIndex(fallback));
+}
+
 // model / kit variant in turn; etypeOverride >= 0: this enemy type for a melee type (an egg names it), else the type's own
 void Game::setupSlotSoldier(const RosterSlot& rs, AiType ait, int variant, int& germanSeen, int etypeOverride) {
     auto& arr = archetypes["archetypes"];
@@ -299,6 +305,9 @@ void Game::setupSlotSoldier(const RosterSlot& rs, AiType ait, int variant, int& 
             : ait == AiType::Civilians ? enemyTypeNpcPick((uint32_t)rs.id)   // NPC1: one of the civilian types per slot
             : ait == AiType::SpearKnight ? std::max(0, enemyTypeIndex("knight_spear"))   // KS: the Spear Knight (its build picked per spawn from "models")
             : ait == AiType::ChineseSoldier ? std::max(0, enemyTypeIndex("chinese_soldier"))   // CS1
+            : ait == AiType::ImperialYari ? localTypeOr("imperial_yari", "chinese_imperial_yari", "knight_spear")   // IS1: local-only models: the Spear Knight without them
+            : ait == AiType::ImperialGilded ? localTypeOr("imperial_gilded", "chinese_imperial_gilded", "knight_spear")
+            : ait == AiType::ImperialMoon ? localTypeOr("imperial_moon", "chinese_imperial_moon", "knight_spear")
             : ait == AiType::RomanArcher ? std::max(0, enemyTypeIndex(fs::exists(contentDir() / "characters" / "roman_archer.glb") ? "roman_archer" : fs::exists(contentDir() / "characters" / "archer_2.glb") ? "archer2" : "archer1"))   // RA1: Archer 2 (or Archer 1) were its model missing
             : ait == AiType::Archers2 ? std::max(0, enemyTypeIndex(fs::exists(contentDir() / "characters" / "archer_2.glb") ? "archer2" : "archer1"))   // AR2: its model is local-only (the tunic is CC-BY-NC-ND): Archer 1 without it
             : ait == AiType::Abominations ? std::max(0, enemyTypeIndex("abomination")) : ait == AiType::Golems ? std::max(0, enemyTypeIndex("golem"))

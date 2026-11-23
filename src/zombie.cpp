@@ -1096,6 +1096,18 @@ int ar1SelfCheck() {
       for (auto& c : need) ok = ok && clips.count(c);
       ok = ok && nodes.count("mixamorig:Weapon") && nodes.count("sword"); msg = std::to_string(clips.size()) + " clips, the Weapon joint and the sword"; }
     chk(ok, "Paladin 2 (PK2): AI type 52, the Paladin's clips and attacks, its own model (the Paladin without it); " + msg); }
+  {   // IS1: AI types 55-57 Imperial Soldiers: melee, the Spear Knight's entry on local-only models (the Spear Knight without them), not in Assorted
+    bool ok = (int)AiType::ImperialYari == 55 && (int)AiType::ImperialGilded == 56 && (int)AiType::ImperialMoon == 57 && kAiTypeCount > 57; std::string have;
+    const int sk = enemyTypeIndex("knight_spear"); ok = ok && sk >= 0;
+    for (const char* id : {"imperial_yari", "imperial_gilded", "imperial_moon"}) {
+      bool inMix = false; for (auto& [m, w] : zcfg().assorted) inMix = inMix || m == id; ok = ok && !inMix;
+      const int k = enemyTypeIndex(id); if (k < 0 || sk < 0) continue;
+      const EnemyType& t = enemyType(k), &s0 = enemyType(sk); have += std::string(have.empty() ? "" : ", ") + id;
+      ok = ok && t.hp == s0.hp && t.attackClips == s0.attackClips && t.attackSpecs.size() == s0.attackSpecs.size() && t.weight == 0 && t.reach > s0.reach && t.height > 2.0f && t.height < 2.3f;
+      for (auto& x : t.attackSpecs) ok = ok && x.bone == "mixamorig:RightHand" && x.hasAt && glm::length(x.at) > 140.0f && glm::length(x.at) < 200.0f;
+    }
+    for (AiType a : {AiType::ImperialYari, AiType::ImperialGilded, AiType::ImperialMoon}) ok = ok && !Game::soldierBrain(a) && std::string(aiTypeName(a)).rfind("Imperial Soldier", 0) == 0;
+    chk(ok, "Imperial Soldiers (IS1): AI types 55-57, melee, not in Assorted; " + (have.empty() ? std::string("models absent (local-only): the Spear Knight") : "local types " + have + ": the Spear Knight's health, thrusts and clips, strikes on the right hand near each spear's tip, knight size")); }
   {   // BC1: AI type 46 Boss; a local boss_choi type is invulnerable
     const int bi = enemyTypeIndex("boss_choi");
     chk((int)AiType::Boss == 46 && kAiTypeCount > 46 && std::string(aiTypeName(AiType::Boss)) == "Boss" && !Game::soldierBrain(AiType::Boss) && (bi < 0 || enemyType(bi).invuln),
