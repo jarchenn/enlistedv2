@@ -44,6 +44,7 @@ for m in {m for o in bpy.data.objects if o.type == 'MESH' for m in o.data.materi
         im = img_of(sock)
         if im is None: out.append(None); continue
         fn = '%s_%s.png' % (m.name, 'base' if sock.name == 'Base Color' else 'nrm')
+        if not im.has_data and not im.packed_file: out.append(None); continue   # BC1: a texture the FBX names but does not carry (Choi's normalmap_texture)
         im.filepath_raw = os.path.join(TEX, fn); im.file_format = 'PNG'; im.save(); out.append(fn)
     mats[m.name] = out
 json.dump(mats, open(os.path.join(TEX, 'materials.json'), 'w'), indent=1); print('MATERIALS', mats)

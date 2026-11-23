@@ -97,6 +97,7 @@ const ZombieCfg& zcfg() {
           if (a.contains("shoot") && a["shoot"].is_object()) { const json& sh = a["shoot"]; x.shoot = true; x.speed = std::max(5.0f, sh.value("speed", x.speed)); x.spreadDeg = std::max(0.0f, sh.value("spread_deg", x.spreadDeg)); x.ammo = sh.value("ammo", std::string("crossbow_bolt")); x.massG = sh.value("mass_g", x.massG); }   // AR1
           if (!x.clip.empty()) t.attackSpecs.push_back(x);
         }
+        t.invuln = e.value("invulnerable", t.invuln);   // BC1
         t.attackDust = e.value("attack_dust", t.attackDust); t.tankDamage = e.value("tank_damage", t.hp >= 500); t.hitSparks = e.value("hit_fx", std::string()) == "sparks"; t.headMult = std::max(0.0f, e.value("head_mult", t.headMult));
         t.explosiveMult = std::max(0.0f, e.value("explosive_mult", t.explosiveMult)); t.blockR = std::clamp(e.value("block_radius", t.blockR), 0.0f, 0.5f); t.locoRate = std::clamp(e.value("walk_rate", t.locoRate), 0.25f, 4.0f); t.stompArea = std::clamp(e.value("stomp_area", t.stompArea), 0.0f, 1.0f);
         if (e.contains("horse_death") && e["horse_death"].is_object()) {   // HK2
@@ -1034,9 +1035,13 @@ int ar1SelfCheck() {
   {   // OPF1: AI type 44 Giant Operator: the Operators' brain in a body of its own at 1.5x; the local-only model first, the operator body after it
     json C; try { std::ifstream f(contentDir() / "ai" / "combat.json"); C = json::parse(f); } catch (...) {} const json of = C.value("operator_f", json::object()), ml = of.value("models", json::array());
     bool plain = true; for (const char* fac : {"Allies", "Axis"}) { const json l = C.value("operator_models", json::object()).value(fac, json::array()); plain = plain && l.size() == 1 && l[0] == "skin_operator"; }
-    chk((int)AiType::OperatorF == 44 && kAiTypeCount > 44 && std::string(aiTypeName(AiType::OperatorF)) == "Giant Operator" && Game::soldierBrain(AiType::OperatorF) && plain && of.value("scale", 0.0f) == 1.5f
+    chk((int)AiType::OperatorF == 44 && kAiTypeCount > 44 && std::string(aiTypeName(AiType::OperatorF)) == "Giant Operator" && (Game::soldierBrain(AiType::OperatorF) || enemyTypeIndex("operator_f_idle") >= 0) && plain && of.value("scale", 0.0f) == 3.0f
         && ml.size() == 2 && ml[0] == "skin_operator_f1" && ml[1] == "skin_operator" && C.value("hold_bodies", json::object()).value("skin_operator_f1", std::string()) == "allied_body",
-        "Giant Operator (OPF1): AI type 44, a soldier brain, 1.5x; its own body first and the operator body when that file is absent; the Operators keep theirs"); }
+        "Giant Operator (OPF1 / BC1): AI type 44, a soldier brain at 3x (or, with its local idle model, a stationary melee-brain type); its own body first and the operator body when that file is absent; the Operators keep theirs"); }
+  {   // BC1: AI type 46 Boss; a local boss_choi type is invulnerable
+    const int bi = enemyTypeIndex("boss_choi");
+    chk((int)AiType::Boss == 46 && kAiTypeCount == 47 && std::string(aiTypeName(AiType::Boss)) == "Boss" && !Game::soldierBrain(AiType::Boss) && (bi < 0 || enemyType(bi).invuln),
+        "Boss (BC1): AI type 46, melee brain; boss_choi (local-only) invulnerable"); }
   {   // GR1: the fire curve's overlapping shots add, each x its weight; the rod is the furthest back among them; past the end a shot is off the curve
     WeaponDef d; d.fireCurveFps = 10; d.fireCurve = {{}, {}, {}}; d.fireCurve[1][6] = 2; d.fireCurve[1][9] = 0.08f;   // muzzle up 2 deg and the rod back at 0.1 s
     WeaponState w; w.curveFolded[0] = w.curveFolded[1] = false; w.curveAge[0] = 0.1f; w.curveGain[0] = 1; w.curveAge[1] = 0.05f; w.curveGain[1] = 0.5f;

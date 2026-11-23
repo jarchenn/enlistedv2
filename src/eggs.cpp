@@ -63,7 +63,8 @@ float yawFacing(App& app, vec3 p) { vec3 d = app.camPos - p; return glm::degrees
 
 // ---------------------------------------------------------------- Game: the sandbox
 bool Game::soldierBrain(AiType a) {
-  return a == AiType::Soldiers || a == AiType::Operators || a == AiType::OperatorF || a == AiType::Troopers || a == AiType::Robots || a == AiType::Desert ||
+  static const bool opfIdle = fs::exists(contentDir() / "characters" / "operator_f1_idle.glb");   // BC1: the Giant Operator's local idle model: it then stands still on the melee brain (zombie_local.json operator_f_idle)
+  return a == AiType::Soldiers || a == AiType::Operators || (a == AiType::OperatorF && !opfIdle) || a == AiType::Troopers || a == AiType::Robots || a == AiType::Desert ||
          a == AiType::Delta || a == AiType::Allied || a == AiType::SS || a == AiType::AlliedPara || (a == AiType::Mechs && gMechRobot);   // gameplay 62c4fe18: the gas-mask types retired
 }
 
