@@ -2,7 +2,7 @@
  "animDuration": 0.0,
  "bmax": [
   4.5822601318359375,
-  10.60854721069336,
+  10.58349609375,
   4.943089008331299
  ],
  "bmin": [
@@ -17,23 +17,17 @@
   },
   {
    "albedo": "albedo_2.jpg",
-   "name": "vh1_stone",
+   "name": "pr10_floor_boards_old",
    "normal": "normal_1.jpg"
   },
   {
    "albedo": "albedo_4.jpg",
-   "name": "pr10_floor_boards_old",
+   "name": "pr10_beam_weathered",
    "normal": "normal_3.jpg"
   },
   {
-   "albedo": "albedo_6.jpg",
-   "name": "pr10_beam_weathered",
-   "normal": "normal_5.jpg"
-  },
-  {
-   "albedo": "albedo_2.jpg",
-   "name": "pr10_limestone_coursed",
-   "normal": "normal_1.jpg"
+   "albedo": "albedo_5.jpg",
+   "name": "pr10_vh_manor_tower_stone"
   }
  ],
  "parts": [
@@ -46,7 +40,7 @@
    ],
    "bmax": [
     4.5822601318359375,
-    10.60854721069336,
+    10.58349609375,
     4.943089008331299
    ],
    "bmin": [
@@ -54,39 +48,13 @@
     0.0,
     -4.943089008331299
    ],
-   "count": 732,
+   "count": 1950,
    "first": 0,
    "mat": 0,
    "metal": 0.0,
    "name": "ZBrushPolyMesh3D_1_defaultMat_0.002",
    "role": "body",
-   "rough": 1.0,
-   "textured": true
-  },
-  {
-   "base": [
-    1.0,
-    1.0,
-    1.0,
-    1.0
-   ],
-   "bmax": [
-    4.5822601318359375,
-    9.0179443359375,
-    4.939364433288574
-   ],
-   "bmin": [
-    -3.924081802368164,
-    0.0,
-    -4.922055721282959
-   ],
-   "count": 330,
-   "first": 732,
-   "mat": 1,
-   "metal": 0.0,
-   "name": "ZBrushPolyMesh3D_1_defaultMat_0.002",
-   "role": "body",
-   "rough": 0.8999999761581421,
+   "rough": 0.9200000166893005,
    "textured": true
   },
   {
@@ -107,8 +75,8 @@
     -1.1744999885559082
    ],
    "count": 36,
-   "first": 1062,
-   "mat": 2,
+   "first": 1950,
+   "mat": 1,
    "metal": 0.0,
    "name": "ZBrushPolyMesh3D_1_defaultMat_0.002",
    "role": "body",
@@ -133,8 +101,8 @@
     -1.1744999885559082
    ],
    "count": 36,
-   "first": 1098,
-   "mat": 3,
+   "first": 1986,
+   "mat": 2,
    "metal": 0.0,
    "name": "ZBrushPolyMesh3D_1_defaultMat_0.002",
    "role": "body",
@@ -159,8 +127,8 @@
     -1.1701500415802002
    ],
    "count": 258,
-   "first": 1134,
-   "mat": 4,
+   "first": 2022,
+   "mat": 3,
    "metal": 0.0,
    "name": "ZBrushPolyMesh3D_1_defaultMat_0.002",
    "role": "body",
@@ -177,6 +145,6 @@
  "scale": 1.0,
  "source": "vh_manor_tower.glb",
  "textures": {},
- "triangles": 464,
- "vertices": 805
+ "triangles": 760,
+ "vertices": 890
 }

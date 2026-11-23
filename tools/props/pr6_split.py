@@ -255,6 +255,60 @@ for P in job["pieces"]:
                     co = me.vertices[me.loops[li].vertex_index].co
                     uvl.data[li].uv = (co[ua] / t, co.z / t)
             print("PR6 retex %s: %d of %d wall faces to %s" % (P["id"], len(stone), len(samples), os.path.basename(RT["tex"])))
+    if P.get("matte"):   # VH1c: the model's own materials dull (its roofs read as wet / reflective): no roughness / metal maps, rough, not metal
+        for sl in ob.material_slots:
+            m = sl.material
+            if not m or not m.use_nodes: continue
+            bs = next((n for n in m.node_tree.nodes if n.type == "BSDF_PRINCIPLED"), None)
+            if not bs: continue
+            for k in ("Roughness", "Metallic"):
+                for l in list(bs.inputs[k].links): m.node_tree.links.remove(l)
+            bs.inputs["Roughness"].default_value = P["matte"]; bs.inputs["Metallic"].default_value = 0.0
+    if P.get("roof"):   # VH1c: a one-sided roof given its thickness (the up-facing faces copied out, solidified downward with rims, joined
+        # back), optionally re-textured (thatch) with UVs along the slope at real size
+        RF = P["roof"]; me = ob.data
+        from mathutils.bvhtree import BVHTree
+        nz0, z0_ = RF.get("min_nz", 0.3), RF.get("min_z", 1.0)
+        bm = bmesh.new(); bm.from_mesh(me); bm.faces.ensure_lookup_table()
+        ups = [f for f in bm.faces if f.normal.z > nz0 and f.calc_center_median().z > z0_]
+        downs = [f for f in bm.faces if f.normal.z < -nz0 and f.calc_center_median().z > z0_]
+        if ups and downs:   # a down-facing roof face with a top surface just above it is that roof's underside (inside the
+            # thickened roof: dropped); one without is a top modelled facing down (turned up)
+            vs = [v.co.copy() for v in bm.verts]; tree = BVHTree.FromPolygons(vs, [[v.index for v in f.verts] for f in ups])
+            under = [f for f in downs if tree.ray_cast(f.calc_center_median() + Vector((0, 0, 0.01)), Vector((0, 0, 1)), RF.get("under", 0.8))[0] is not None]
+            us = set(under); flip = [f for f in downs if f not in us]
+            if flip: bmesh.ops.reverse_faces(bm, faces=flip)
+            bmesh.ops.delete(bm, geom=under, context="FACES")
+            print("PR6 roof %s: %d undersides dropped, %d tops turned up" % (P["id"], len(under), len(flip)))
+        bm.to_mesh(me); bm.free(); me.update()
+        roof = [p.index for p in me.polygons if p.normal.z > nz0 and p.center.z > z0_]
+        if roof:
+            if RF.get("tex"):
+                mat = bpy.data.materials.new("vh1_roof"); mat.use_nodes = True; N, L = mat.node_tree.nodes, mat.node_tree.links
+                bs = next(n for n in N if n.type == "BSDF_PRINCIPLED"); bs.inputs["Roughness"].default_value = 0.95; bs.inputs["Metallic"].default_value = 0.0
+                ti = N.new("ShaderNodeTexImage"); ti.image = bpy.data.images.load(os.path.join(RF["tex"], "color.jpg"), check_existing=True); L.new(ti.outputs[0], bs.inputs["Base Color"])
+                if os.path.exists(os.path.join(RF["tex"], "normal.jpg")):
+                    nt = N.new("ShaderNodeTexImage"); nt.image = bpy.data.images.load(os.path.join(RF["tex"], "normal.jpg"), check_existing=True); nt.image.colorspace_settings.name = "Non-Color"
+                    nm = N.new("ShaderNodeNormalMap"); L.new(nt.outputs[0], nm.inputs["Color"]); L.new(nm.outputs[0], bs.inputs["Normal"])
+                me.materials.append(mat); rmi = len(me.materials) - 1; t = RF["tile"]; uvl = me.uv_layers.active
+                for i in roof:
+                    p = me.polygons[i]; p.material_index = rmi; n = p.normal
+                    r = n.cross(Vector((0, 0, 1))); r = r.normalized() if r.length > 1e-6 else Vector((1, 0, 0)); s_ = n.cross(r).normalized()
+                    for li in p.loop_indices:
+                        co = me.vertices[me.loops[li].vertex_index].co; uvl.data[li].uv = (co.dot(r) / t, co.dot(s_) / t)
+            bm = bmesh.new(); bm.from_mesh(me); bm.faces.ensure_lookup_table(); rs = set(roof)
+            keep = [f for f in bm.faces if f.index not in rs]
+            rb = bm.copy(); rb.faces.ensure_lookup_table()
+            bmesh.ops.delete(rb, geom=[f for f in rb.faces if f.index not in rs], context="FACES")
+            bmesh.ops.delete(bm, geom=[f for f in bm.faces if f.index in rs], context="FACES"); bm.to_mesh(me); bm.free()
+            rme = bpy.data.meshes.new("roof"); rb.to_mesh(rme); rb.free()
+            for m in me.materials: rme.materials.append(m)
+            ro = bpy.data.objects.new("roof", rme); bpy.context.scene.collection.objects.link(ro)
+            md = ro.modifiers.new("sol", "SOLIDIFY"); md.thickness = RF["thick"]; md.offset = -1; md.use_rim = True; md.use_even_offset = True
+            for o_ in bpy.context.selected_objects: o_.select_set(False)
+            bpy.context.view_layer.objects.active = ro; ro.select_set(True); bpy.ops.object.modifier_apply(modifier=md.name)
+            ob = join([ob, ro])
+            print("PR6 roof %s: %d faces, %.2f thick%s" % (P["id"], len(roof), RF["thick"], (", " + os.path.basename(RF["tex"])) if RF.get("tex") else ""))
     if P.get("add_boxes"):   # PR10: walls / floors / ceilings a model lacks: textured boxes (source units), UVs at world scale
         add = []
         for i, B in enumerate(P["add_boxes"]):

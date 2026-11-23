@@ -2,7 +2,7 @@
  "animDuration": 0.0,
  "bmax": [
   3.1070806980133057,
-  8.083922386169434,
+  8.071107864379883,
   1.7838090658187866
  ],
  "bmin": [
@@ -26,9 +26,8 @@
    "normal": "normal_3.jpg"
   },
   {
-   "albedo": "albedo_6.jpg",
-   "name": "pr10_limestone_coursed",
-   "normal": "normal_5.jpg"
+   "albedo": "albedo_5.jpg",
+   "name": "pr10_vh_townhouse_stone"
   }
  ],
  "parts": [
@@ -41,7 +40,7 @@
    ],
    "bmax": [
     3.1070806980133057,
-    8.083922386169434,
+    8.071107864379883,
     1.7838090658187866
    ],
    "bmin": [
@@ -49,13 +48,13 @@
     0.0,
     -1.7838090658187866
    ],
-   "count": 1377,
+   "count": 2445,
    "first": 0,
    "mat": 0,
    "metal": 0.0,
    "name": "maison_Mat_0.002",
    "role": "body",
-   "rough": 0.0,
+   "rough": 0.9200000166893005,
    "textured": true
   },
   {
@@ -76,7 +75,7 @@
     -1.226699948310852
    ],
    "count": 36,
-   "first": 1377,
+   "first": 2445,
    "mat": 1,
    "metal": 0.0,
    "name": "maison_Mat_0.002",
@@ -102,7 +101,7 @@
     -1.226699948310852
    ],
    "count": 36,
-   "first": 1413,
+   "first": 2481,
    "mat": 2,
    "metal": 0.0,
    "name": "maison_Mat_0.002",
@@ -128,7 +127,7 @@
     -1.226699948310852
    ],
    "count": 222,
-   "first": 1449,
+   "first": 2517,
    "mat": 3,
    "metal": 0.0,
    "name": "maison_Mat_0.002",
@@ -146,6 +145,6 @@
  "scale": 1.0,
  "source": "vh_townhouse.glb",
  "textures": {},
- "triangles": 557,
- "vertices": 940
+ "triangles": 913,
+ "vertices": 1118
 }
