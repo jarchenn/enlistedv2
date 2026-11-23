@@ -20,23 +20,10 @@ import pr8_openings
 from pr10_assets import BLENDER, HERE, ROOT, run
 
 S = 0.29   # metres per source unit
-# VH1c (the user: "undo that change, it looks worse now. the previous exterior stone should be what it looks like both exterior
-# and interior. the roofs should not be reflective. Some of the roofs should use the bricklike texture but some should use this
-# strawlike one. roofs also need to be thicker and not just a flat plane"):
-#  * the outside keeps the model's own textures (VH1b's re-texture undone), made matte (roughness 0.92, no metal);
-#  * the inner walls are lined with each house's own outside stone: a plain square of its wall cut from a flat render of the
-#    original (E:/nmk/village/py/patch3.py -> <VH_TEX>/<asset>_stone/color.jpg, mirrored 2 x 2; its tile in stone_tiles.json);
-#  * the roofs are solidified (0.12 m tiles, 0.35 m thatch); four houses thatched (ambientCG ThatchedRoof001B / 002B, CC0).
-VH_TEX = os.environ.get("VH1_TEX", "E:/nmk/village/tex")
-ROOF = {"vh_cottage_shutters": ("thatch_001b", 0.35), "vh_cottage_tall": ("thatch_002b", 0.35), "vh_longhouse_blue": ("thatch_002b", 0.35),
-        "vh_barn_cottage": ("thatch_001b", 0.35), "vh_manor_tower": (None, 0.12), "vh_stone_house_l": (None, 0.12), "vh_townhouse": (None, 0.12),
-        "vh_timber_house": (None, 0.12)}
-THATCH_TILE = 2.0   # m
-
-
-def stone(bid):
-    tiles = json.load(open(os.path.join(VH_TEX, "stone_tiles.json")))
-    return os.path.join(VH_TEX, bid + "_stone"), tiles[bid]["tile_m"]
+# VH1e (the user, after VH1b-d: "just use the original one you sent me, but with the interior also the rock of the exterior"):
+# outside, the model's own textures and roofs exactly as in VH1 (only matte: no roughness / metal maps); inside, the walls
+# are the shell's own wall faces copied, flipped, 3 cm in (pr6_split "double_walls"), so each room shows the outside's
+# rock; the lining keeps only the boarded floor and the ceiling.
 CREDIT = ("House Village", "remib74", "CC-BY-4.0", "https://sketchfab.com/3d-models/house-village-a5d6dae1ff424adca8978a143769ab2d")
 T = 0.5    # wall collider thickness inward (source units, 15 cm)
 U = 1 / S  # source units per metre
@@ -231,24 +218,11 @@ def boxes(bid):
 
 
 def lining(bid, doors, holes):
-    """Floor / plaster walls / ceiling for each room (pr10_assets.lining, the cuts through the walls deeper: a shell's
-    face can sit a long way off the room box, the long house's recessed door)."""
-    B = H[bid]; Hc = B["Hc"]; dep = B.get("cut", 1.2)
-    cuts = []
-    for b in [v[3] for v in doors.values()] + list(holes.values()):
-        lo, hi = [b[0], b[2], b[4]], [b[1], b[3], b[5]]
-        k = 0 if (b[1] - b[0]) < (b[3] - b[2]) else 1
-        lo[k] -= dep; hi[k] += dep; cuts.append((lo, hi))
-    out = []
-    for r in B["rooms"]:
-        x0, x1, y0, y1 = r; z0, z1 = 0.1, Hc; t = 0.06
-        out.append({"box": [x0, x1, y0, y1, z0, z0 + 0.05], "tex": "floor_boards_old", "tile": 6.0})
-        out.append({"box": [x0, x1, y0, y1, z1 - 0.05, z1], "tex": "beam_weathered", "tile": 6.0})
-        for w in ([x0, x1, y0, y0 + t], [x0, x1, y1 - t, y1], [x0, x0 + t, y0, y1], [x1 - t, x1, y0, y1]):
-            bx = [([w[0], w[2], z0], [w[1], w[3], z1])]
-            for c in cuts: bx = [q for b in bx for q in pr8_openings.subtract(b, c)]
-            st, tm = stone(bid)
-            out += [{"box": [lo[0], hi[0], lo[1], hi[1], lo[2], hi[2]], "tex": st, "tile": tm / S} for lo, hi in bx]
+    """A boarded floor and a ceiling in each room (the walls inside are the shell's own, see "double_walls")."""
+    B = H[bid]; out = []
+    for x0, x1, y0, y1 in B["rooms"]:
+        out.append({"box": [x0, x1, y0, y1, 0.1, 0.15], "tex": "floor_boards_old", "tile": 6.0})
+        out.append({"box": [x0, x1, y0, y1, B["Hc"] - 0.05, B["Hc"]], "tex": "beam_weathered", "tile": 6.0})
     return out
 
 
@@ -258,16 +232,15 @@ def mark(x, y, z=0.1): return [x - 0.03, x + 0.03, y - 0.03, y + 0.03, z, z + 0.
 def convert(src_dir, glbs):
     os.makedirs(glbs, exist_ok=True)
     for bid, B in H.items():
-        if os.path.exists(os.path.join(glbs, bid + ".glb")): continue
+        if os.path.exists(os.path.join(glbs, bid + ".glb")) or (os.environ.get("VH1_ONLY") and bid not in os.environ["VH1_ONLY"].split(",")): continue
         walls, floor, doors, cuts, holes = boxes(bid)
         F = furnish(bid)
         marks = {**{k: v[3] for k, v in doors.items()}, **holes, "floor": floor, **{"f%d" % i: mark(f[1], f[2], floor[5]) for i, f in enumerate(F)}}
         piece = {"id": bid, "objects": None, "boxes": walls, "marks": marks, "cut_out": cuts,
                  "add_boxes": [{**b, "tex": os.path.join(ROOT, "content", "textures", b["tex"])} for b in lining(bid, doors, holes)],
                  "scale": S, "yaw": 0}
-        rt, th = ROOF[bid]
         piece["matte"] = 0.92
-        piece["roof"] = {"thick": th / S, "min_nz": 0.3, "min_z": 4.0, **({"tex": os.path.join(VH_TEX, rt), "tile": THATCH_TILE / S} if rt else {})}
+        piece["double_walls"] = 0.03 / S
         run({"src": os.path.join(src_dir, B["key"] + ".glb"), "out": glbs, "pieces": [piece]}, glbs, bid)
 
 

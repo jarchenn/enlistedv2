@@ -24,10 +24,6 @@
    "albedo": "albedo_4.jpg",
    "name": "pr10_beam_weathered",
    "normal": "normal_3.jpg"
-  },
-  {
-   "albedo": "albedo_5.jpg",
-   "name": "pr10_vh_manor_tower_stone"
   }
  ],
  "parts": [
@@ -48,7 +44,7 @@
     0.0,
     -4.943089008331299
    ],
-   "count": 6516,
+   "count": 5964,
    "first": 0,
    "mat": 0,
    "metal": 0.0,
@@ -66,16 +62,16 @@
    ],
    "bmax": [
     3.500300168991089,
-    0.04349999874830246,
+    0.043500036001205444,
     4.770500183105469
    ],
    "bmin": [
     -1.3919994831085205,
-    0.028999999165534973,
+    0.029000038281083107,
     -1.1744999885559082
    ],
    "count": 36,
-   "first": 6516,
+   "first": 5964,
    "mat": 1,
    "metal": 0.0,
    "name": "ZBrushPolyMesh3D_1_defaultMat_0.002",
@@ -101,34 +97,8 @@
     -1.1744999885559082
    ],
    "count": 36,
-   "first": 6552,
+   "first": 6000,
    "mat": 2,
-   "metal": 0.0,
-   "name": "ZBrushPolyMesh3D_1_defaultMat_0.002",
-   "role": "body",
-   "rough": 0.8500000238418579,
-   "textured": true
-  },
-  {
-   "base": [
-    1.0,
-    1.0,
-    1.0,
-    1.0
-   ],
-   "bmax": [
-    3.500300168991089,
-    2.8999998569488525,
-    4.770500183105469
-   ],
-   "bmin": [
-    -1.3919994831085205,
-    0.028999999165534973,
-    -1.1744999885559082
-   ],
-   "count": 864,
-   "first": 6588,
-   "mat": 3,
    "metal": 0.0,
    "name": "ZBrushPolyMesh3D_1_defaultMat_0.002",
    "role": "body",
@@ -145,6 +115,6 @@
  "scale": 1.0,
  "source": "vh_manor_tower.glb",
  "textures": {},
- "triangles": 2484,
- "vertices": 3815
+ "triangles": 2012,
+ "vertices": 2652
 }
