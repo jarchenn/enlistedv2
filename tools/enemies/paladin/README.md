@@ -17,4 +17,4 @@ From DevonLux's "5 Piece Platemail - MetaHuman (rigged)" and HASSAN's "guts swor
 `fbx_to_glb.py` (the FBX with its textures relinked by file name; the MetaHuman face under the closed helm dropped), then the steps
 above. `rig_platemail.py` also moves stray arm weights of body garments to the pelvis and removes a small loose piece left far from
 the body after the bake (the heavy armour's belt end). `hilt.py` prints the sword's guard and pommel (bind space) for `grip_check.py`
-and `ik_left.py`. The model is local-only (git-ignored) until its licence is confirmed.
+and `ik_left.py`. The model is committed (the user confirmed DevonLux's CC-BY-4.0).
