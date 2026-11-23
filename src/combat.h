@@ -45,6 +45,7 @@ struct WeaponDef {
   bool locked = false;   // GM3 "locked": fixed in its slot (never dropped, swapped at a rack or replaced by a pickup)
   float sway = 1;                       // MG6: JSON "sway": breathing sway x this while standing (crouched / prone: x1; the .50)
   bool breathe = true;                  // GR14 JSON "breathe": false = no idle breathing sway at all (the Garand: the user's still aim; the mouse look's sway stays)
+  float smoke = 1;                      // WS1 JSON "smoke": the WW2 firing smoke (Fx::gunSmoke, fx.json "smallArms") x this; default 1 for a period gun, 0 modern / blaster
   bool modern = false;                  // MG1: JSON "modern" (side "modern"): only from the modern weapons case, never in 1944 loadouts / classes / bot pools
   bool casings = true;   // MG12: false = no case ejected per shot (revolver, break-action shotgun)
   vec3 holdOffset{0}; float holdWeld = 1; int holdKind = -1; int leftHold = 0; GripPose gripPose;   /* WS1 JSON hold.left: "magazine" = 1: the support hand grips the magazine (palm to the right, fingers forward round it) instead of lying under the handguard */   // SW2 JSON "hold": third-person hold: offset (chest frame m: x left, y up, z forward) of the shouldered / low-ready weapon, cheek-weld share, kind 0 pistol / 1 rifle / 2 launcher (-1: by the grip)
@@ -216,6 +217,8 @@ struct Fx {
   void bullet(vec3 a, vec3 b, int tracerKind);   // one flight segment of a round, drawn by its tracer kind
   void blasterImpact(vec3 p, vec3 n, int kind);   // SW1: a bolt striking a surface: coloured flash, sparks, a scorch puff, a brief light
   void smoke(vec3 p, vec3 v, float size, float life, vec4 col, float grow = 1.2f, float lift = 0.6f);
+  void gunSmoke(vec3 p, vec3 dir, float k, int gun);   // WS1: a WW2 small arm's firing smoke (fx.json "smallArms"), k the weapon's "smoke"; gun: one rate budget per shooter
+  std::unordered_map<int, vec2> smokeBudget;          // WS1: gun -> (puffs it may still make, clock when last topped up)
   void flash(vec3 p, float size, float life, vec4 col);
   void streak(vec3 a, vec3 b, float width, float life, vec4 col);
   // fxscale (Battle Foundry 5): sized from the charge (munitions.json id, or W kg TNT-eq when > 0), shaped by the surface under it and the
@@ -243,6 +246,7 @@ struct Fx {
   double clock = 0, presentT = 0;           // the one simulation clock (advanced by update's fixed steps); the drawn instant (clock - (1 - alpha) / 60)
   mutable double lastPresent = -1;          // build: the previous drawn instant (the envelope integrates over the interval since)
   bool evOn = true, capOn = true;           // Renderer::perf fxEv / fxCap, set each frame
+  bool ww2Smoke = true;                     // Renderer::perf ww2smoke (WS1), set each frame
   float yrefNits = 3438, peakClamp = 60;    // Yref of the lit 18 % card (nits, 0.18 E / pi) this frame; the bloom-dependent clamp (yref.json)
   static constexpr float kNitsToScene = 1.0f / 30000.0f;   // the lighting session's uNitsToScene
   int tier = 2;                             // 0 Very Low .. 4 Ultra High (spec 8.3 columns)

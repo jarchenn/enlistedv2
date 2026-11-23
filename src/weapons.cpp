@@ -222,7 +222,8 @@ void App::buildWeaponMeshes() {
       fd.patchSeconds = f.value("patchSeconds", fd.patchSeconds); fd.patchRadius = f.value("patchRadius", fd.patchRadius); fd.patchDps = f.value("patchDps", fd.patchDps);
       fd.botRange = f.value("botRange", fd.botRange); fd.botBurst = f.value("botBurstSeconds", fd.botBurst); fd.botPause = f.value("botPauseSeconds", fd.botPause);
     }
-    d->modern = j.value("modern", d->side == "modern"); d->pellets = std::max(1, j.value("pellets", 1)); d->spreadDeg = j.value("spreadDeg", 0.0f);   // MG1
+    d->modern = j.value("modern", d->side == "modern");
+    d->smoke = std::max(0.0f, j.value("smoke", d->modern || j.contains("blaster") || j.contains("flame") || j.value("action", std::string()) == "launcher" || j.value("caliber", std::string()).empty() ? 0.0f : 1.0f));   // WS1: period guns (not rockets, flamethrowers, or a weapon without a calibre) d->pellets = std::max(1, j.value("pellets", 1)); d->spreadDeg = j.value("spreadDeg", 0.0f);   // MG1
     d->casings = j.value("casings", true);
     { std::string bl = j.value("blaster", std::string()); d->blaster = bl == "red" ? 4 : bl.empty() ? 0 : 3; }   // SW1
     if (j.contains("hold")) { const json& h = j["hold"]; d->holdOffset = jvec3(h.value("offset", json()), vec3(0)); d->holdWeld = h.value("weld", 1.0f); std::string hk = h.value("kind", std::string()); d->holdKind = hk == "pistol" ? 0 : hk == "rifle" ? 1 : hk == "launcher" ? 2 : -1; d->leftHold = h.value("left", std::string()) == "magazine" ? 1 : h.value("left", std::string()) == "tube" ? 2 : 0;   // 2: a launcher tube: the support hand in a C over it beside the face
@@ -821,6 +822,7 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
         if (R.perf.fxEv) R.exposureFreeze(0.15f);   // Battle Foundry 5.2: the own flash never moves the exposure (the lighting session's fxexpo)
       }
       fx.smoke(fxm, aimDir * 2.0f + vec3(0, 0.3f, 0), 0.05f, 0.7f + 0.5f * fx.rnd(), vec4(0.6f, 0.58f, 0.55f, 0.16f), 0.6f, 0.2f); fx.parts.back().fade = 1.6f;   // thin, short-lived, eroded wisp
+      if (!(d.suppressed || s.att[ATT_MUZZLE] == 1)) fx.gunSmoke(fxm, aimDir, d.smoke, -1);   // WS1: a WW2 gun's lingering puff (the local player: gun -1)
       audio.play(lootSuppressedShot(d, s) && audio.hasEvent("shot_suppressed_rifle") ? std::string("shot_suppressed_rifle") : "shot_" + d.id + (d.action == "auto" && semi ? "_semi" : ""), muzzle, 1.0f);   // SND15; SND18: SEMI on an automatic plays its single (else falls back to shot_<id>)
       if (d.pellets > 1 && d.feed == "single") audio.play("shotgun_pump", eyePos(), 0.8f);   // MG12: tube-fed pumps only (not the break-action sawn-off)   // the pump cycling the next shell (the recording starts 0.3 s in)
       shotCasing(d, ch.pos, -1);   // SND4

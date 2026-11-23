@@ -974,6 +974,7 @@ bool Game::soldierFire(Soldier& s, vec3 dir) {
   if (s.kit == 4 && !d.blaster) app.fx.muzzleFireball(muzzle + dd * 0.01f, dd, d.flashScale * std::clamp(0.45f + 0.6f * d.muzzle.z, 0.55f, 1.3f), d.suppressed || lootSuppressedShot(d, w), muzzle, d.caliber.c_str());   // DF1: the fireball flash (fx.cpp)
   else app.fx.muzzleFlash(muzzle + dd * 0.02f, dd, d.flashScale * 1.2f, d.suppressed, muzzle, d.blaster ? blasterColour(d.blaster) : vec3(-1), d.caliber.c_str());   // WP4: the same flash and light as the player's
   app.fx.smoke(muzzle, dd * 2.0f + vec3(0, 0.3f, 0), 0.05f, 1.2f, vec4(0.6f, 0.58f, 0.55f, 0.35f), 0.6f, 0.2f);
+  if (!(d.suppressed || lootSuppressedShot(d, w))) app.fx.gunSmoke(muzzle, dd, d.smoke, s.slot);   // WS1
   app.audio.play(lootSuppressedShot(d, w) && app.audio.hasEvent("shot_suppressed_rifle") ? std::string("shot_suppressed_rifle") : "shot_" + d.id + (d.action == "auto" && std::string(app.fireModeName(d, w)) == "SEMI" ? "_semi" : ""), muzzle, 1.0f);   // SND15; SND18: as weapons.cpp
   if (!s.localPlayer) app.shotCasing(d, s.feet, s.slot);   // SND4
   s.recoil = d.action == "launcher" ? 3.0f : 1.0f; s.lastShot = t;   // RC2: a launcher rocks the shooter's arms and weapon back (pose.cpp)
