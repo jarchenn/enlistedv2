@@ -993,7 +993,20 @@ int ar1SelfCheck() {
   { int fk = enemyTypeIndex("fallen_knight"), f1 = enemyTypeIndex("fallen_knight1"), k1 = enemyTypeIndex("knight"); bool inMix = false;   // FK1
     for (auto& [id, w] : zcfg().assorted) inMix = inMix || id.rfind("fallen", 0) == 0;
     chk(fk >= 0 && f1 >= 0 && k1 >= 0 && enemyType(fk).hp == 5 * enemyType(k1).hp && enemyType(f1).hp == enemyType(fk).hp && enemyType(fk).model == "knight" && !inMix && std::string(aiTypeName(AiType::FallenKnight)) == "Fallen Knight",
-        "Fallen Knight (FK1): AI type 39, 5x a knight's health, the Brother Knight's model, a Knight 1 fallback, not in Assorted"); }
+        "Fallen Knight (FK1): AI type 39, 5x a knight's health, the Brother Knight's model, a Knight 1 fallback, not in Assorted");
+    // FK3: its idle is a closed loop (the raw mocap cut popped 18 cm at the head every 0.83 s: tools/enemies/clip_loop.py): every
+    // channel's last key is its first, and the loop lasts 1.5 s or more. The model is local-only: nothing to measure without it
+    std::ifstream f(contentDir() / "characters" / "knight.glb", std::ios::binary); std::string g((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+    float seam = 0, dur = 0; bool found = false;
+    if (g.size() > 28) { uint32_t nn = 0; std::memcpy(&nn, g.data() + 12, 4); json J; try { J = json::parse(g.substr(20, nn)); } catch (...) {} const char* B = g.data() + 20 + nn + 8;
+      for (auto& an : J.value("animations", json::array())) if (an.value("name", std::string()) == "idle") for (auto& sm : an["samplers"]) {
+        const json& ao = J["accessors"][sm["output"].get<int>()]; const json& ai = J["accessors"][sm["input"].get<int>()]; if (ao.value("componentType", 0) != 5126) continue;
+        int n = ao["count"].get<int>(), k = ao["type"] == "VEC4" ? 4 : ao["type"] == "VEC3" ? 3 : 1; if (n < 2) continue;
+        const float* y = (const float*)(B + J["bufferViews"][ao["bufferView"].get<int>()].value("byteOffset", 0) + ao.value("byteOffset", 0)); float d = 0, e = 0;
+        for (int c = 0; c < k; ++c) { d = std::max(d, std::fabs(y[(n - 1) * k + c] - y[c])); e = std::max(e, std::fabs(y[(n - 1) * k + c] + y[c])); }
+        seam = std::max(seam, k == 4 ? std::min(d, e) : d); if (ai.contains("max")) dur = std::max(dur, ai["max"][0].get<float>()); found = true; } }
+    chk(g.empty() || (found && seam < 1e-3f && dur >= 1.5f), g.empty() ? "Fallen Knight (FK3): idle loop not measured (knight.glb is local-only and absent here)"
+        : "Fallen Knight (FK3): the idle loops without a pop (largest first-to-last key difference " + std::to_string(seam) + ", " + std::to_string(dur) + " s)"); }
   {   // GR1: the fire curve's overlapping shots add, each x its weight; the rod is the furthest back among them; past the end a shot is off the curve
     WeaponDef d; d.fireCurveFps = 10; d.fireCurve = {{}, {}, {}}; d.fireCurve[1][6] = 2; d.fireCurve[1][9] = 0.08f;   // muzzle up 2 deg and the rod back at 0.1 s
     WeaponState w; w.curveFolded[0] = w.curveFolded[1] = false; w.curveAge[0] = 0.1f; w.curveGain[0] = 1; w.curveAge[1] = 0.05f; w.curveGain[1] = 0.5f;
