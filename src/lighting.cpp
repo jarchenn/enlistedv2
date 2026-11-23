@@ -691,7 +691,8 @@ void LightingPass::reflPass(Renderer& R, const RenderView& v, const std::vector<
     if (glCheckNamedFramebufferStatus(F.fbo, GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) { logf("reflection probe framebuffer incomplete"); ++R.fboErrors; }
   }
   const vec3 eye = v.camPos;
-  const bool need = R.reflTex == 0 || glm::distance(eye, F.pos) > 6.0f || L.frame - F.stamp > 300 || std::fabs(R.lt.hour - F.hour) > 0.1f || std::fabs(R.wx.k - F.wx) > 0.1f;
+  const bool need = R.reflTex == 0 || glm::distance(eye, F.pos) > 6.0f || L.frame - F.stamp > 300 || std::fabs(R.lt.hour - F.hour) > 0.1f || std::fabs(R.wx.k - F.wx) > 0.1f || R.reflForce;
+  R.reflForce = false;   // SG4
   R.reflOn = R.reflTex != 0;
   if (!need) return;
   F.pos = eye; F.stamp = L.frame; F.hour = R.lt.hour; F.wx = R.wx.k;
@@ -959,6 +960,7 @@ void LightingPass::prepass(Renderer& R, const RenderView& v, const std::vector<D
   float cutK = (int)L.sel.size() > cap && cap > 0 ? key(L.sel[cap]) : 1e30f;
   if ((int)L.sel.size() > cap) L.sel.resize(cap);
   L.count = (int)L.sel.size();
+  if (R.dbgOff & 64) L.count = 0;   // SG6 probe bit 64: no local / dynamic lights (lamps, flashes, the headlamp)
   L.gpu.resize(std::max(L.count, 1));
   for (int i = 0; i < L.count; ++i) {
     const LightDesc& d = L.sel[i];

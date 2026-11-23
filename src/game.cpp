@@ -1478,6 +1478,7 @@ void Game::drawItems() {
     float dist = glm::length(c - cam);
     if (dist > 300 + 2 * bs) continue;
     if (!selfShadow && dist > 4 * bs && glm::dot(glm::normalize(c - cam), fwd) < -0.2f) continue;   // behind the camera (shadows of close ones kept)
+    if (s.dbgHide) continue;   // SG6 probe: this soldier not drawn
     s.drawnAt = t;
     struct SelfShadowMove {   // everything pushed for the live local player below moves to the cascade-only list (head and helmet left out:
       App& a; bool on; size_t m0, b0, h0;   // they sit at the eye and would shade the viewmodel); its box-mesh and thermal draws are dropped

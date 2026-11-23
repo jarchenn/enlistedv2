@@ -131,6 +131,7 @@ void eggsUpdate(App& app, float dt) {   // App::updateCreative: right-click spaw
   int n = 0; while (E.acc >= 1.0f / 60.0f) { gGame->step(1.0f / 60.0f); E.acc -= 1.0f / 60.0f; ++n; }
   gGame->posesFrame(n / 60.0f, 1.0f);
   if (n > 0) Physics::step(n / 60.0f, n);
+  if (n > 0) app.fx.update(n / 60.0f, app.terrain);   // SG7: the sandbox's effects age with its steps (Creative never stepped them: every hit spark, flash, blood puff and dust burst a sandbox fight made stayed where it was at full brightness, the additive HDR ones stacking into a saturated disc)
 }
 
 void eggsDraw(App& app) { (void)app; if (sandboxOn()) gGame->drawItems(); }   // mpaiFrame in Creative
@@ -192,6 +193,7 @@ bool eggsSelfTest(App& a, float dt) {
       ok += spawnEgg(a, list[k], p, 0.0f, k % 3) >= 0;
     }
     logf("[eggs] %d / %d eggs spawned (soldier types + enemy types at runtime)", ok, want);
+    a.fx.flash(vec3(0, a.terrain.height(0, 0) + 1.5f, 0), 0.1234f, 0.05f, vec4(9, 6, 3, 1));   // SG7: a 50 ms marker flash: it must be gone after the sandbox's 5 s
     if (ok != want) { logf("[eggs] FAIL not every egg spawned"); return finish(1); }
     stage = 2; t = 0; return true;
   }
@@ -199,6 +201,13 @@ bool eggsSelfTest(App& a, float dt) {
     int alive = 0, finite = 0; for (auto& s : gGame->sold) { alive += s.alive; finite += std::isfinite(s.feet.x) && std::isfinite(s.feet.y) && std::isfinite(s.feet.z); }
     logf("[eggs] after 5 s: %zu soldiers, %d alive, %d finite, sandbox steps %llu", gGame->sold.size(), alive, finite, (unsigned long long)gGame->steps);
     good = finite == (int)gGame->sold.size() && gGame->steps > 0;
+    {   // SG7: the sandbox's effects age: the marker flash is gone, no particle outlives its lifetime, none is brighter than an HDR 64
+      int marker = 0, overLife = 0, tooBright = 0; float maxC = 0;
+      for (auto& p : a.fx.parts) { marker += std::fabs(p.maxLife - 0.05f) < 1e-4f && std::fabs(p.size - 0.1234f) < 1e-4f; overLife += p.life > p.maxLife + 1e-4f; float c = std::max(p.col.r, std::max(p.col.g, p.col.b)); maxC = std::max(maxC, c); tooBright += c > 64.0f; }
+      const bool fxOk = marker == 0 && overLife == 0 && tooBright == 0;
+      logf("[eggs] SG7 effects in the sandbox: %s (%zu particles, marker flash %s, %d past their life, brightest %.1f, %d above 64)", fxOk ? "ok" : "FAIL", a.fx.parts.size(), marker ? "still there" : "gone", overLife, maxC, tooBright);
+      good = good && fxOk;
+    }
     // HK5: the Mounted Knight's horse is brought down (the others frozen, so nothing else hurts him): the horse must stay as a
     // corpse and the same slot go on on foot where he landed, and still be there 10 s later
     E.frozen = true;
