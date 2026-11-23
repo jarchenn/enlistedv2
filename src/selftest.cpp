@@ -170,7 +170,8 @@ void SelfTest::update(App& app, float dt) {
   { extern bool turnEngageSelfTest(App&, float); if (turnEngageSelfTest(app, dt)) return; }   // AI5: --check-turn-engage (selftest_turn.cpp)
   { extern bool leanCapture(App&, float); if (leanCapture(app, dt)) return; }   // MV3: --capture-lean (selftest_lean.cpp)
   { extern bool recoilCapture(App&, float); if (recoilCapture(app, dt)) return; }   // WP4: --capture-recoil (selftest_recoil.cpp)
-  { extern bool seqCapture(App&, float); if (seqCapture(app, dt)) return; }   // KR12: --capture-seq (selftest_seq.cpp)
+  { extern bool seqCapture(App&, float); if (seqCapture(app, dt)) return; }
+  { extern bool enemyCapture(App&, float); if (enemyCapture(app, dt)) return; }   // CAPE: --capture-enemy (capture_enemy.cpp)   // KR12: --capture-seq (selftest_seq.cpp)
   { extern bool brModelsSelfTest(App&, float); if (brModelsSelfTest(app, dt)) return; }
   { extern bool reticlesSelfTest(App&, float); if (reticlesSelfTest(app, dt)) return; }   // AT2: --capture-reticles (selftest_reticles.cpp)
   { extern bool commandsSelfTest(App&, float); if (commandsSelfTest(app, dt)) return; }   // CMD1: --capture-commands (commands.cpp)   // BR3: --capture-br-models (selftest_brmodels.cpp)
