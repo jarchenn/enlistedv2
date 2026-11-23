@@ -1060,12 +1060,12 @@ int ar1SelfCheck() {
         msg = std::to_string(c1.size()) + " clips mounted, " + std::to_string(c2.size()) + " on foot"; }
       chk(ok, "Elk Knight (EK): AI type 47, the elk's own health and hit capsules, look_around after each attack, on foot with the Spear Knight's thrusts; " + msg); }
   }
-  {   // OPF1: AI type 44 Giant Operator: the Operators' brain in a body of its own at 1.5x; the local-only model first, the operator body after it
+  {   // OPF1: AI type 44 Giant Operator: the Operators' brain in a body of its own at 1.13x (BC5); the local-only model first, the operator body after it
     json C; try { std::ifstream f(contentDir() / "ai" / "combat.json"); C = json::parse(f); } catch (...) {} const json of = C.value("operator_f", json::object()), ml = of.value("models", json::array());
     bool plain = true; for (const char* fac : {"Allies", "Axis"}) { const json l = C.value("operator_models", json::object()).value(fac, json::array()); plain = plain && l.size() == 1 && l[0] == "skin_operator"; }
-    chk((int)AiType::OperatorF == 44 && kAiTypeCount > 44 && std::string(aiTypeName(AiType::OperatorF)) == "Giant Operator" && (Game::soldierBrain(AiType::OperatorF) || enemyTypeIndex("operator_f_idle") >= 0) && plain && of.value("scale", 0.0f) == 3.0f
+    chk((int)AiType::OperatorF == 44 && kAiTypeCount > 44 && std::string(aiTypeName(AiType::OperatorF)) == "Giant Operator" && (Game::soldierBrain(AiType::OperatorF) || enemyTypeIndex("operator_f_idle") >= 0) && plain && of.value("scale", 0.0f) == 1.13f
         && ml.size() == 2 && ml[0] == "skin_operator_f1" && ml[1] == "skin_operator" && C.value("hold_bodies", json::object()).value("skin_operator_f1", std::string()) == "allied_body",
-        "Giant Operator (OPF1 / BC1): AI type 44, a soldier brain at 3x (or, with its local idle model, a stationary melee-brain type); its own body first and the operator body when that file is absent; the Operators keep theirs"); }
+        "Giant Operator (OPF1 / BC1 / BC5): AI type 44, a soldier brain at 1.13x, a head taller than the player (or, with its local idle model, a stationary melee-brain type at 2.04 m); its own body first and the operator body when that file is absent; the Operators keep theirs"); }
   {   // BC1: AI type 46 Boss; a local boss_choi type is invulnerable
     const int bi = enemyTypeIndex("boss_choi");
     chk((int)AiType::Boss == 46 && kAiTypeCount > 46 && std::string(aiTypeName(AiType::Boss)) == "Boss" && !Game::soldierBrain(AiType::Boss) && (bi < 0 || enemyType(bi).invuln),

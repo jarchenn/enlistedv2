@@ -9,7 +9,8 @@
 #   the textures uncompressed (character.cpp)
 # Not carried (the character shader has no such terms): KHR_materials_clearcoat (the eyes), blended (sorted) transparency.
 # Each base image is checked against the converted one (mean difference, after resizing) so a UV flip cannot slip through.
-#   python -I tools/enemies/glb_restore_textures.py <converted.glb> <reference.glb> <out.glb>
+#   python -I tools/enemies/glb_restore_textures.py <converted.glb> <reference.glb> <out.glb> [--no-metal]
+# --no-metal: every metallic factor 0 (roughness kept): the original's 0.25 / 0.35 made her skin read grey in the game
 import json, struct, sys, io, re
 import numpy as np
 from PIL import Image
@@ -19,6 +20,7 @@ def load(p):
 def view(J, BIN, k):
     v = J['bufferViews'][k]; o = v.get('byteOffset', 0); return BIN[o:o + v['byteLength']]
 def image_bytes(J, BIN, ti): return view(J, BIN, J['images'][J['textures'][ti]['source']]['bufferView'])
+NO_METAL = '--no-metal' in sys.argv; sys.argv = [a for a in sys.argv if a != '--no-metal']   # BC5: the user: the original, but her skin not metallic
 G, GB = load(sys.argv[1]); R, RB = load(sys.argv[2]); OUT = sys.argv[3]
 rmat = {m['name']: m for m in R['materials']}
 NB = bytearray(); views = []; remap = {}
@@ -60,7 +62,7 @@ for m in G['materials']:
         if 'baseColorTexture' in rp and flipped:   # flipped v: the image flipped and its green (v) channel inverted
             a = np.asarray(Image.open(io.BytesIO(nd)).convert('RGB')).copy()[::-1]; a[..., 1] = 255 - a[..., 1]; nd = png(Image.fromarray(a))
         m['normalTexture'] = tex(nd, ('R', r['normalTexture']['index'], 'baseColorTexture' in rp and flipped))
-    pb['metallicFactor'] = rp.get('metallicFactor', 1.0); pb['roughnessFactor'] = rp.get('roughnessFactor', 1.0)
+    pb['metallicFactor'] = 0.0 if NO_METAL else rp.get('metallicFactor', 1.0); pb['roughnessFactor'] = rp.get('roughnessFactor', 1.0)
     pb.pop('metallicRoughnessTexture', None)
     if pb['metallicFactor'] > 0.05 or pb['roughnessFactor'] < 0.75: pb['metallicRoughnessTexture'] = tex(WHITE, 'white')
     if r.get('alphaMode', 'OPAQUE') != 'OPAQUE' and alpha: m['alphaMode'] = 'MASK'; m['alphaCutoff'] = 0.5

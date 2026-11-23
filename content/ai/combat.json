@@ -248,7 +248,7 @@
  "gunbody_models": {},
  "operator_models": {"Allies": ["skin_operator"], "Axis": ["skin_operator"]},
   "operator_f_note": "OPF1: AI type Giant Operator (44): an Operator in everything (brain, loadouts_operator guns, the Allied skeleton's clips and holds, health) but its body and size. models: a preference order, the first whose file exists (skin_operator_f1 is local-only, git-ignored; absent: the operator body at the same size). scale: what a kit's scale drives (drawn body, held gun, hit zones, eye / chest heights, stride); the movement capsule stays the soldier's",
-  "operator_f": {"models": ["skin_operator_f1", "skin_operator"], "scale": 3},
+  "operator_f": {"models": ["skin_operator_f1", "skin_operator"], "scale": 1.13},
  "corpses": {
   "max": 12,
   "seconds": 40
