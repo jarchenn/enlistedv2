@@ -1115,10 +1115,11 @@ int ar1SelfCheck() {
   {   // KD1: knights' deaths vary: every death clip a knight type lists is in each of its GLBs (models here), and 24 deaths of one type
     // (neighbouring slots, mixed hit directions) play more than one clip; a head hit picks a headshot clip where the model has one
     const char* ids[] = {"knight", "knight4", "knight5", "knight6", "knight7", "knight8", "knight9", "knight10", "knight10e_foot", "knight_spear", "paladin", "paladin2",
-                         "samurai", "crusader", "chinese_soldier", "fallen_knight1", "fallen_knight2"};
+                         "samurai", "crusader", "chinese_soldier", "fallen_knight1", "fallen_knight2", "imperial_yari", "imperial_gilded", "imperial_moon"};
     int types = 0, models = 0, bad = 0; std::string worst;
     for (const char* id : ids) {
-      int k = enemyTypeIndex(id); if (k < 0) { ++bad; worst = std::string(id) + ": no such type"; continue; } ++types;
+      int k = enemyTypeIndex(id); if (k < 0 && std::string(id).rfind("imperial_", 0) == 0) continue;   // IS1 types: local-only until committed
+      if (k < 0) { ++bad; worst = std::string(id) + ": no such type"; continue; } ++types;
       const EnemyType& T = enemyType(k); std::vector<std::string> ms = T.models.empty() ? std::vector<std::string>{T.model} : T.models;
       for (auto& mn : ms) {
         std::ifstream f(contentDir() / "characters" / (mn + ".glb"), std::ios::binary); std::string g((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
