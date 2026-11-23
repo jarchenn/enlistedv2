@@ -1383,7 +1383,7 @@
         ],
         "unused": "walk_turn180, run_turn180 (turns in place: the game turns the body itself), run (its take curves), flee_lookback (a second run: the type has one run clip)"
       },
-      "sounds": {
+      "sounds": { "greet": "npc_greet_male", "alarm": "npc_watch_out",
         "hurt": "player_hurt"
       },
       "attack_dust": false
@@ -1457,7 +1457,7 @@
         ],
         "unused": "walk_turn180, run_turn180 (turns in place: the game turns the body itself), run (its take curves), flee_lookback (a second run: the type has one run clip)"
       },
-      "sounds": {
+      "sounds": { "greet": "npc_greet_male", "alarm": "npc_watch_out",
         "hurt": "player_hurt"
       },
       "attack_dust": false
@@ -1531,7 +1531,7 @@
         ],
         "unused": "walk_turn180, run_turn180 (turns in place: the game turns the body itself), run (its take curves), flee_lookback (a second run: the type has one run clip)"
       },
-      "sounds": {
+      "sounds": { "greet": "npc_greet_male", "alarm": "npc_watch_out",
         "hurt": "player_hurt"
       },
       "attack_dust": false
@@ -1605,7 +1605,7 @@
         ],
         "unused": "walk_turn180, run_turn180 (turns in place: the game turns the body itself), run (its take curves), flee_lookback (a second run: the type has one run clip)"
       },
-      "sounds": {
+      "sounds": { "greet": "npc_greet_male", "alarm": "npc_watch_out",
         "hurt": "player_hurt"
       },
       "attack_dust": false
@@ -1679,7 +1679,7 @@
         ],
         "unused": "walk_turn180, run_turn180 (turns in place: the game turns the body itself), run (its take curves), flee_lookback (a second run: the type has one run clip)"
       },
-      "sounds": {
+      "sounds": { "greet": "npc_greet_male", "alarm": "npc_watch_out",
         "hurt": "player_hurt"
       },
       "attack_dust": false
@@ -1753,7 +1753,7 @@
         ],
         "unused": "walk_turn180, run_turn180 (turns in place: the game turns the body itself), run (its take curves), flee_lookback (a second run: the type has one run clip)"
       },
-      "sounds": {
+      "sounds": { "greet": "npc_greet_male", "alarm": "npc_watch_out",
         "hurt": "player_hurt"
       },
       "attack_dust": false
@@ -1827,7 +1827,7 @@
         ],
         "unused": "walk_turn180, run_turn180 (turns in place: the game turns the body itself), run (its take curves), flee_lookback (a second run: the type has one run clip)"
       },
-      "sounds": {
+      "sounds": { "greet": "npc_greet_male", "alarm": "npc_watch_out",
         "hurt": "player_hurt"
       },
       "attack_dust": false
@@ -1901,7 +1901,7 @@
         ],
         "unused": "walk_turn180, run_turn180 (turns in place: the game turns the body itself), run (its take curves), flee_lookback (a second run: the type has one run clip)"
       },
-      "sounds": {
+      "sounds": { "greet": "npc_greet_female",
         "hurt": "player_hurt"
       },
       "attack_dust": false
@@ -1975,7 +1975,7 @@
         ],
         "unused": "walk_turn180, run_turn180 (turns in place: the game turns the body itself), run (its take curves), flee_lookback (a second run: the type has one run clip)"
       },
-      "sounds": {
+      "sounds": { "greet": "npc_greet_female",
         "hurt": "player_hurt"
       },
       "attack_dust": false
@@ -2049,7 +2049,7 @@
         ],
         "unused": "walk_turn180, run_turn180 (turns in place: the game turns the body itself), run (its take curves), flee_lookback (a second run: the type has one run clip)"
       },
-      "sounds": {
+      "sounds": { "greet": "npc_greet_female",
         "hurt": "player_hurt"
       },
       "attack_dust": false
@@ -2123,7 +2123,7 @@
         ],
         "unused": "walk_turn180, run_turn180 (turns in place: the game turns the body itself), run (its take curves), flee_lookback (a second run: the type has one run clip)"
       },
-      "sounds": {
+      "sounds": { "greet": "npc_greet_female",
         "hurt": "player_hurt"
       },
       "attack_dust": false
@@ -2197,7 +2197,7 @@
         ],
         "unused": "walk_turn180, run_turn180 (turns in place: the game turns the body itself), run (its take curves), flee_lookback (a second run: the type has one run clip)"
       },
-      "sounds": {
+      "sounds": { "greet": "npc_greet_female",
         "hurt": "player_hurt"
       },
       "attack_dust": false

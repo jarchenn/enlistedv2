@@ -112,7 +112,7 @@ const ZombieCfg& zcfg() {
         json sd = e.value("sounds", json::object()); t.sndAttack = sd.value("attack", ""); t.sndIdle = sd.value("idle", ""); t.sndStep = sd.value("step", "");
         t.sndContact = sd.value("contact", ""); t.sndDeath = sd.value("death", ""); t.sndLoop = sd.value("loop", "");
         t.sndMiss = sd.value("miss", ""); t.sndHurt = sd.value("hurt", ""); t.sndWeaponDrop = sd.value("weapon_drop", "");
-        t.sndWindup = sd.value("windup", ""); t.attackAtBlow = sd.value("attack_at", std::string()) == "blow"; t.sndMount = sd.value("mount", ""); t.voicePitch = std::clamp(e.value("voice_pitch", 1.0f), 0.5f, 2.0f);
+        t.sndWindup = sd.value("windup", ""); t.attackAtBlow = sd.value("attack_at", std::string()) == "blow"; t.sndMount = sd.value("mount", ""); t.sndGreet = sd.value("greet", ""); t.sndAlarm = sd.value("alarm", ""); t.voicePitch = std::clamp(e.value("voice_pitch", 1.0f), 0.5f, 2.0f);
         json cl = e.value("clips", json::object());
         strs(cl, "walk", t.walkClips); strs(cl, "idle", t.idleClips); strs(cl, "attack", t.attackClips);
         t.runClip = cl.value("run", t.runClip); t.walkInjured = cl.value("walk_injured", t.walkInjured); t.runInjured = cl.value("run_injured", t.runInjured); t.climbClip = cl.value("climb", t.climbClip); strs(cl, "damage", t.damageClips); strs(cl, "death", t.deathClips);
@@ -405,6 +405,12 @@ void npcHurt(Game& G, int victim, int attacker) {
     const EnemyType& e = enemyType(v.etype); int r = npcReact(v.npc, v.hp, e.hp, e.npcFightHp);
     if (r == 1 && by && !G.sold[attacker].npc) { v.npcFoe = attacker; v.npcCalmAt = 0; } else if (r == 2) npcFlee(G, v, from);
   }
+  if (v.hp <= 0) {   // NPC6 (the user): the nearest civilian with an alarm voice who sees the killing shouts it (each at most once per 8 s). shortcut: host / single player only
+    static std::map<int, double> lastA; Soldier* w = nullptr; float wd = 1e9f;
+    for (auto& o : G.sold) { if (!o.alive || !o.npc || &o == &v || enemyType(o.etype).sndAlarm.empty()) continue; float d = glm::length(o.feet - v.feet); auto it = lastA.find(o.slot);
+      if (d < enemyType(o.etype).npcWitness && d < wd && (it == lastA.end() || it->second > G.t || G.t - it->second > 8.0) && G.lineOfSight(G.eye(o), G.chest(v))) { wd = d; w = &o; } }
+    if (w) { lastA[w->slot] = G.t; const EnemyType& we = enemyType(w->etype); G.app.audio.play(we.sndAlarm.c_str(), G.eye(*w), 1.0f, 0.96f + 0.08f * G.rnd(*w)); }
+  }
   if (v.hp <= 0) for (auto& o : G.sold)   // NPC4 (the user): flee types run only once someone near them is killed (within npc_witness_m, a clear line to the chest), not at a mere hurt; npcHurt runs before killSoldier, so hp <= 0 is this death
     if (o.alive && o.npc == 2 && &o != &v && glm::length(o.feet - v.feet) < enemyType(o.etype).npcWitness && G.lineOfSight(G.eye(o), G.chest(v))) npcFlee(G, o, from);
 }
@@ -423,6 +429,15 @@ static void npcStep(Game& G, AiCore& A, Soldier& s, BotMind& m, const EnemyType&
     m.speed = SPD_ZOMBIE; m.zSpeed = s.hp < e.npcFightHp * e.hp && !e.runInjured.empty() ? 0.75f * e.run : e.run; b.why = "npc: fleeing";   // NPC3: hurt below half: a slower, hurt run
     vec3 d = m.moveDir; if (zLenXZ(d) > 0.05f) b.aimYaw = degrees(std::atan2(-d.x, -d.z));
     return;
+  }
+  if (!e.sndGreet.empty() && G.localSlot >= 0 && G.localSlot < (int)G.sold.size() && G.sold[G.localSlot].alive) {   // NPC6 (the user): the local player within 3 m: it stops, faces them and greets,
+    // once per approach (again after they step 6 m away), at most once per 20 s. shortcut: the local player only
+    const Soldier& P = G.sold[G.localSlot]; const float d = zLenXZ(P.feet - s.feet);
+    static std::map<int, std::pair<int, double>> greet; auto gi = greet.find(s.slot); if (gi == greet.end() || gi->second.second > G.t) gi = greet.insert_or_assign(s.slot, std::make_pair(-1, -100.0)).first;
+    auto& gs = gi->second;
+    if (gs.first == s.lifeId && d > 6.0f) gs.first = -1;
+    if (gs.first != s.lifeId && d < 3.0f && std::fabs(P.feet.y - s.feet.y) < 2.0f && G.t - gs.second > 20.0) { gs = {s.lifeId, G.t}; G.app.audio.play(e.sndGreet.c_str(), G.eye(s), 1.0f, 0.97f + 0.06f * G.rnd(s)); }
+    if (gs.first == s.lifeId && G.t - gs.second < 1.8) { m.speed = SPD_STOP; vec3 dd = P.feet - s.feet; if (zLenXZ(dd) > 0.05f) b.aimYaw = degrees(std::atan2(-dd.x, -dd.z)); b.why = "npc: greeting"; return; }
   }
   const bool there = !m.hasPath || zLenXZ(s.feet - m.goal) < 1.2f;
   if (G.t >= s.npcNext && there) {
@@ -1001,6 +1016,10 @@ int ar1SelfCheck() {
     { bool fl = true; for (const char* id : {"npc_ch37", "npc_ch02", "npc_ch21", "npc_elegant", "npc_dress"}) { int k = enemyTypeIndex(id); fl = fl && k >= 0 && enemyType(k).npc == 2 && enemyType(k).damage == 0 && fs::exists(contentDir() / "characters" / (enemyType(k).model + ".glb")); }
       chk(fl, "Civilians (NPC4/5): npc_ch37, npc_ch02, npc_ch21, npc_elegant and npc_dress are flee types (never take a foe), damage 0, their GLBs present"); }
     chk(clipsOk && nNpc >= 7, "Civilians (NPC1/2): npc_ch31 is a fighter, AI type Civilians picks a civilian type, " + std::to_string(nNpc) + " civilian types, every clip each names is in its GLB"); }
+  {   // NPC6: civilian voices: every civilian greets (the men "what can I do for you", the women their own line); the men shout "watch out" at a killing they see
+    int ok = 0, n = 0; for (auto& t : enemyTypes()) if (t.npc) { ++n; ok += t.sndGreet == (t.npc == 1 ? "npc_greet_male" : "npc_greet_female") && (t.npc == 1) == (t.sndAlarm == "npc_watch_out"); }
+    int files = 0; for (const char* f : {"npc_greet_male", "npc_greet_female", "npc_watch_out"}) files += fs::exists(contentDir() / "audio" / "custom" / (std::string(f) + ".mp3"));
+    chk(n >= 10 && ok == n && files == 3, "civilian voices (NPC6): " + std::to_string(ok) + " of " + std::to_string(n) + " civilian types greet in their voice, the men also shout a warning; " + std::to_string(files) + " of 3 files"); }
   {   // HS1: the Mounted Knight's horse sounds: 5 snorts, a neigh, a death whinny, 6 hoof falls (custom/horse)
     int files = 0; for (const char* f : {"snort_1", "snort_2", "snort_3", "snort_4", "snort_5", "neigh", "death", "step_1", "step_2", "step_3", "step_4", "step_5", "step_6"}) files += fs::exists(contentDir() / "audio" / "custom" / "horse" / (std::string(f) + ".mp3"));
     int hk = enemyTypeIndex("knight10m");
