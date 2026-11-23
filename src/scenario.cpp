@@ -45,7 +45,7 @@ float captureRateFor(const ScenarioRules& r, const Objective& o, int A, int D) {
 
 // ---------------------------------------------------------------- rules
 json ScenarioRules::toJson() const {
-  return {{"defenderSlots", defenderSlots}, {"attackerAI", attackerAI}, {"attackerRespawns", attackerRespawns},
+  return {{"defenderSlots", defenderSlots}, {"attackerAI", attackerAI}, {"armyUnits", {armyUnits[0], armyUnits[1]}}, {"attackerRespawns", attackerRespawns},
           {"attackerWave_s", attackerWave}, {"defenderWave_s", defenderWave}, {"minRespawnDelay_s", minRespawnDelay},
           {"defendingFaction", factionName(defendingFaction)}, {"fragPerLife", fragPerLife},
           {"smokePerLifeAttacker", smokePerLifeAttacker}, {"smokePerLifeDefender", smokePerLifeDefender},
@@ -66,6 +66,8 @@ ScenarioRules ScenarioRules::fromJson(const json& j, int version) {
   if (!j.is_object()) return r;
   r.defenderSlots = j.value("defenderSlots", r.defenderSlots);
   r.attackerAI = j.value("attackerAI", r.attackerAI);
+  if (j.contains("armyUnits") && j["armyUnits"].is_array()) for (int t = 0; t < 2 && t < (int)j["armyUnits"].size(); ++t) if (j["armyUnits"][t].is_number_integer()) r.armyUnits[t] = std::clamp(j["armyUnits"][t].get<int>(), 0, kMaxArmy);   // GC4
+  if (r.armyUnits[0] + r.armyUnits[1] > kMaxArmy) r.armyUnits[1] = kMaxArmy - r.armyUnits[0];
   r.attackerRespawns = j.value("attackerRespawns", r.attackerRespawns);
   r.attackerWave = j.value("attackerWave_s", r.attackerWave);
   r.defenderWave = j.value("defenderWave_s", r.defenderWave);

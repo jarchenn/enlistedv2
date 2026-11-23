@@ -154,6 +154,8 @@ struct ScenarioRules {
   bool lootModern = false;        // Battle Royale: floor guns from the modern list (else WW2) (loot.cpp)
   std::vector<std::string> allowedClasses;   // GM1: class ids the host allows (empty = every class)
   bool classAllowed(const std::string& id) const { for (auto& c : allowedClasses) if (c == id) return true; return allowedClasses.empty(); }
+  int armyUnits[2] = {0, 0};      // GC4 army mode: per team (Assault: defenders, attackers; TDM: A, B) AI beyond the roster, run as the GPU crowd (crowd.cpp)
+  static constexpr int kMaxArmy = 100000;        // GC4: the crowd's AI in all (the GPU holds 131,072)
   static constexpr int kMaxAI = 1000;            // up to 1000 AI (AI2, user request 2026-11-15; was 200, 100)
   static constexpr int kMaxCombatants = kMaxAI + 16;   // plus up to 16 humans
   json toJson() const;

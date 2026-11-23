@@ -30,6 +30,7 @@ struct RosterSlot {
   int team = 0;                  // friend / foe: Assault and TDM = (int)role, Solo = the slot id (G1)
   int score = 0;                 // +100 per kill, -100 per team kill (G1)
   int place = 0;                 // BR1 battle royale: final placement (1 = winner), 0 while still in
+  bool parked = false;           // GC4 army mode: its soldier went into the GPU crowd (far from every human); no respawn, no death
 };
 
 struct ObjectiveRT {
@@ -62,6 +63,9 @@ public:
   std::vector<MatchEvent> events;
   std::string spawnProblem;      // actionable message when placement keeps failing
   uint32_t rev = 1;              // bumps on any replicated change (net dirty flag)
+  int armyAlive[2] = {0, 0}, armyKills[2] = {0, 0};   // GC4 army mode: per team, its GPU crowd units alive and the crowd's kills of the other team
+  void park(int slot);           // GC4: the slot's soldier became a crowd unit (no death, no life spent, no respawn)
+  void unpark(int slot);         // GC4: a crowd unit becomes this slot's soldier: pending, so onSpawned takes it (no life spent)
   int winnerSlot = -1;           // Solo: the slot that reached the kill cap; battle royale: the last one alive
   int stillIn() const;           // BR1 battle royale: alive, or yet to make their (only) spawn
   GameMode mode() const { return rules.mode; }

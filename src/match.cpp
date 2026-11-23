@@ -138,7 +138,9 @@ void Match::onDeath(int slot, int killer) {
   ++rev;
 }
 
-int Match::teamKills(int team) const { int n = 0; for (auto& s : slots) if (s.team == team) n += s.kills; return n; }
+int Match::teamKills(int team) const { int n = team == 0 || team == 1 ? armyKills[team] : 0; for (auto& s : slots) if (s.team == team) n += s.kills; return n; }   // GC4: the crowd's kills count for its team
+void Match::park(int slot) { if (slot < 0 || slot >= (int)slots.size()) return; auto& s = slots[slot]; s.parked = true; s.alive = s.sampleAlive = false; s.pending = false; ++rev; }
+void Match::unpark(int slot) { if (slot < 0 || slot >= (int)slots.size()) return; auto& s = slots[slot]; if (!s.parked) return; s.parked = false; s.pending = true; if (s.livesLeft >= 0) ++s.livesLeft; ++rev; }   // onSpawned spends the life given back
 int Match::topKills(int* slot) const {
   int best = 0, bs = -1;
   for (auto& s : slots) if (s.kills > best) { best = s.kills; bs = s.id; }
@@ -151,13 +153,13 @@ int Match::stillIn() const { int n = 0; for (auto& s : slots) n += s.alive || (!
 std::vector<int> Match::spawnQueue() const {
   std::vector<int> q;
   if (phase != MatchPhase::Running) return q;
-  for (auto& s : slots) if (s.pending && !s.alive) q.push_back(s.id);
+  for (auto& s : slots) if (s.pending && !s.alive && !s.parked) q.push_back(s.id);
   return q;
 }
 
 void Match::releaseWave(CombatRole r) {
   for (auto& s : slots) {
-    if (s.role != r || s.alive || s.pending) continue;
+    if (s.role != r || s.alive || s.pending || s.parked) continue;   // GC4: a parked slot waits for its crowd unit
     if (s.deadFor < rules.minRespawnDelay) continue;      // minimum death-to-spawn delay
     if (s.livesLeft == 0) continue;                       // exhausted budget
     s.pending = true;                                     // committed: counts as a pending respawn from now on
@@ -165,9 +167,10 @@ void Match::releaseWave(CombatRole r) {
 }
 
 bool Match::attackersExhausted() const {
+  if (armyAlive[(int)CombatRole::Attacker] > 0) return false;   // GC4: the attackers' crowd still marches
   for (auto& s : slots) {
     if (s.role != CombatRole::Attacker) continue;
-    if (s.alive || s.pending) return false;               // living, or a committed pending respawn
+    if (s.alive || s.pending || s.parked) return false;   // living, or a committed pending respawn (GC4: or in the crowd)
     if (s.livesLeft != 0) return false;                   // an available respawn remains
   }
   return true;

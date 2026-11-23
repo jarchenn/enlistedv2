@@ -7,6 +7,9 @@
 #include "settings.h"
 #include "simplify.h"
 #include "frustum.h"
+#include "physics.h"
+#include "ai_hooks.h"
+#include <cstring>
 #include <map>
 #include <unordered_map>
 #include <queue>
@@ -92,7 +95,9 @@ struct GpuCrowd {
   GLuint units = 0, sim = 0, cnt = 0, idx = 0, height = 0, costBuf = 0, vis = 0, visCnt = 0, cmd = 0, cmdBucket = 0;
   GLuint progHash = 0, progMove = 0, progCull = 0, progCmd = 0, progFight = 0;
   GLuint pc = 0, pid = 0, dmg = 0, deaths = 0; int cx = 0, cz = 0; float ccell = 16; int frame = 0;   // GC3
-  int spawned[2] = {0, 0}, dead[2] = {0, 0}; double nextDeaths = 0;
+  int spawned[2] = {0, 0}, dead[2] = {0, 0}, promoted[2] = {0, 0}; double nextDeaths = 0;
+  GLuint nearBuf = 0; bool nearOn = false; std::vector<std::pair<glm::uvec4, vec4>> nearRecs;   // GC4
+  std::vector<vec4> hum; bool armyInit = false; int goalFor = -2; double nextDemote = 0; std::vector<float> farFor;
   Grid g; bool gridOk = false; int nCmd = 0; std::vector<int> cmdFirstOf;   // per bucket: its first command
   bool costDirty[2] = {false, false}; std::vector<float> cost[2]; double lastT = -1;
 } C;
@@ -111,6 +116,9 @@ layout(std430, binding = 10) buffer PCnt { uint pc[]; };    // GC3: [team][coars
 layout(std430, binding = 11) buffer PIdx { uint pid[]; };   // one of them (the last written)
 layout(std430, binding = 12) buffer Dmg { uint dmg[]; };    // damage taken this frame, per unit
 layout(std430, binding = 13) buffer Deaths { uint nd; uint dl[]; };   // deaths: (unit, team) pairs
+struct Near { uvec4 a; vec4 p; };                            // GC4: unit, team, type, hp; its feet + yaw
+layout(std430, binding = 14) buffer NearL { uint nn; uint pad0, pad1, pad2; Near nr[]; };
+uniform vec4 uHum[16]; uniform int uNH, uNearOn;              // GC4: the humans' bubbles (xyz, radius)
 uniform int uN, uNx, uNz, uCx, uCz, uFrame; uniform vec2 uOrg; uniform float uCell, uDt, uCCell;
 ivec2 coarseOf(vec2 p) { return clamp(ivec2(floor((p - uOrg) / uCCell)), ivec2(0), ivec2(uCx - 1, uCz - 1)); }
 float rnd(uint a, uint b) { uint h = a * 747796405u + b * 2891336453u + 12345u; h = ((h >> ((h >> 28u) + 4u)) ^ h) * 277803737u; h = (h >> 22u) ^ h; return float(h) / 4294967295.0; }
@@ -168,6 +176,8 @@ void main() { uint i = gl_GlobalInvocationID.x; if (i >= uint(uN)) return;
   vec2 want = k0 < 6.0 || bk >= k0 ? vec2(0) : best;   // at the goal (or boxed in): hold
   int tg = s.b.w; bool engaged = tg >= 0 && length(u[tg].pos.xz - p) <= s.c.w;   // GC3: in range of its target: stand and fire
   if (engaged) want = vec2(0);
+  bool inB = false; for (int h = 0; h < uNH; ++h) { vec2 d = p - uHum[h].xz; if (dot(d, d) < uHum[h].w * uHum[h].w) inB = true; }   // GC4: inside a human's bubble
+  if (inB) { want = vec2(0); if (uNearOn == 1) { uint k = atomicAdd(nn, 1u); if (k < 1024u) { nr[k].a = uvec4(i, uint(clamp(s.b.x, 0, 1)), uint(s.b.y), uint(max(s.a.z, 1.0))); nr[k].p = x.pos; } } }
   // separation from the 3 x 3 cells' units
   vec2 push = vec2(0);
   for (int dz = -1; dz <= 1; ++dz) for (int dx = -1; dx <= 1; ++dx) {
@@ -262,6 +272,7 @@ bool ensureGpu(Game& g) {
   C.height = ssbo(cells * 4, C.g.h.data()); C.costBuf = ssbo(cells * 2 * 4);
   C.vis = ssbo((size_t)kMaxTypes * 2 * kCapB * 4); C.visCnt = ssbo(kMaxTypes * 2 * 4);
   C.cx = std::max(1, (int)std::ceil(C.g.nx * C.g.cell / C.ccell)); C.cz = std::max(1, (int)std::ceil(C.g.nz * C.g.cell / C.ccell));
+  C.nearBuf = ssbo(16 + 1024 * 32); { const uint32_t z = 0; glClearNamedBufferData(C.nearBuf, GL_R32UI, GL_RED_INTEGER, GL_UNSIGNED_INT, &z); }
   C.pc = ssbo((size_t)2 * C.cx * C.cz * 4); C.pid = ssbo((size_t)2 * C.cx * C.cz * 4); C.dmg = ssbo(kCap * 4); C.deaths = ssbo(4 + 65536 * 8);
   { const uint32_t z = 0; glClearNamedBufferData(C.dmg, GL_R32UI, GL_RED_INTEGER, GL_UNSIGNED_INT, &z); glClearNamedBufferData(C.deaths, GL_R32UI, GL_RED_INTEGER, GL_UNSIGNED_INT, &z); }
   for (int t = 0; t < 2; ++t) if (C.cost[t].empty()) { C.cost[t].assign(cells, 0.0f); for (size_t c = 0; c < cells; ++c) if (!C.g.walk[c]) C.cost[t][c] = 1e9f; C.costDirty[t] = true; }   // no goal yet: stand
@@ -311,16 +322,111 @@ bool crowdShadersBuild(std::string& err) {   // --check-crowd: every crowd compu
   return true;
 }
 int crowdCount() { return C.n; }
-int crowdAlive(int team) { return team < 0 || team > 1 ? 0 : C.spawned[team] - C.dead[team]; }
+
+// ---------------------------------------------------------------- GC4 army mode
+static Faction teamFaction(const Game& g, int t) {
+  const ScenarioRules& r = g.match.rules;
+  if (g.match.mode() == GameMode::Assault) return t == (int)CombatRole::Defender ? r.defendingFaction : otherFaction(r.defendingFaction);
+  return r.teamFaction[std::clamp(t, 0, 1)];
+}
+static std::vector<vec3> teamSpawns(const Game& g, int t) {
+  std::vector<vec3> v;
+  if (g.match.mode() == GameMode::Assault) { for (auto* m : g.match.sc.spawnsFor(t == 1 ? CombatRole::Attacker : CombatRole::Defender, g.match.active)) v.push_back(m->pos); }
+  else for (auto& m : g.match.sc.spawns) if (m.team == t) v.push_back(m.pos);
+  return v;
+}
+static vec3 centroid(const std::vector<vec3>& v, vec3 def) { if (v.empty()) return def; vec3 c(0); for (auto& p : v) c += p; return c / (float)v.size(); }
+static void parkSoldier(Game& g, int i) {
+  Soldier& s = g.sold[i];
+  if (s.agent >= 0) { Physics::destroyAgent(s.agent); s.agent = -1; }
+  aiForget(g, i); s.alive = false; s.diedAt = -1e9; s.hp = 0;   // no corpse (diedAt far past), no death
+  if (s.ciReady) { s.ci.destroy(); s.ciReady = false; }
+  g.match.park(i);
+}
+static void retireUnit(uint32_t i, int team, int type) {   // GC4: a promoted unit leaves the crowd (state 3: not drawn, hashed or targeted)
+  const glm::ivec4 b(team, type, 3, -1); glNamedBufferSubData(C.sim, (GLintptr)i * sizeof(CrowdSim) + 16, 16, &b);
+}
+void crowdArmyStep(Game& g, float dt) {
+  const ScenarioRules& r = g.match.rules;
+  const bool army = !g.isClient && r.armyUnits[0] + r.armyUnits[1] > 0 && (g.match.mode() == GameMode::Assault || g.match.mode() == GameMode::TDM) && g.app.R.perf.crowd;
+  if (!army) return;
+  // the humans' bubbles: 150 m, 350 m for the local player aiming through a scope
+  C.hum.clear();
+  for (auto& s : g.sold) if (s.inUse && s.alive && (s.human || s.localPlayer)) {
+    float R = 150.0f;
+    if (s.localPlayer && g.app.adsT > 0.5f && s.weapon >= 0 && s.weapon < (int)g.app.weaponDefs.size() && g.app.weaponDefs[s.weapon]->hasScope) R = 350.0f;
+    C.hum.push_back(vec4(s.feet, R));
+  }
+  if (C.hum.empty()) C.hum.push_back(vec4(g.app.eyePos(), 150.0f));   // spectating: the camera's
+  // reserves, once: in blocks behind each side's spawns, facing its goal
+  const Objective* ob = g.match.activeObjective();
+  auto goalOf = [&](int t) { if (ob) return ob->pos; return centroid(teamSpawns(g, 1 - t), vec3(t ? -g.app.terrain.buildHalfX * 0.7f : g.app.terrain.buildHalfX * 0.7f, 0, 0)); };
+  if (!C.armyInit) {
+    C.armyInit = true;
+    auto gun = [&](const char* id) { for (int k = 0; k < (int)g.app.weaponDefs.size(); ++k) if (g.app.weaponDefs[k]->id == id) return k; return -1; };
+    for (int t = 0; t < 2; ++t) {
+      const Faction f = teamFaction(g, t); const json& ml = g.combat.value("models", json::object()).value(factionName(f), json::array());
+      std::vector<int> mods; for (auto& m : ml) { auto it = g.modelIdx.find(m.get<std::string>()); if (it != g.modelIdx.end()) mods.push_back(it->second); }
+      if (mods.empty() || r.armyUnits[t] <= 0) continue;
+      const int gn = gun(f == Faction::Allies ? "m1_garand" : "kar98k");
+      const vec3 c = centroid(teamSpawns(g, t), vec3(t ? g.app.terrain.buildHalfX * 0.7f : -g.app.terrain.buildHalfX * 0.7f, 0, 0));
+      vec3 fw = goalOf(t) - c; fw.y = 0; fw = glm::length(fw) > 1 ? glm::normalize(fw) : vec3(0, 0, 1); const vec3 side(fw.z, 0, -fw.x);
+      const int W = std::max(20, (int)std::sqrt((double)r.armyUnits[t] * 2)); const float yaw = std::atan2(-fw.x, -fw.z);
+      const float hx = g.app.terrain.buildHalfX - 3, hz = g.app.terrain.buildHalfZ - 3; int made = 0;
+      for (int k = 0; k < r.armyUnits[t]; ++k) {
+        vec3 p = c - fw * (8.0f + (k / W) * 1.6f) + side * ((k % W - W * 0.5f) * 1.6f);
+        p.x = std::clamp(p.x, -hx, hx); p.z = std::clamp(p.z, -hz, hz);
+        made += crowdSpawn(g, p, yaw, t, mods[k % mods.size()], gn, k % 9 == 0 ? 4.0f : 1.4f) >= 0;
+      }
+      logf("crowd: army %s (team %d): %d of %d reserves spawned", factionName(f), t, made, r.armyUnits[t]);
+    }
+  }
+  if (g.match.active != C.goalFor) { C.goalFor = g.match.active; for (int t = 0; t < 2; ++t) crowdGoal(g, t, goalOf(t)); }   // the objective moved on
+  // promotion: the near list (read on the GPU's 15th frames), nearest to a human first, onto a parked slot of the unit's side
+  if (!C.nearRecs.empty()) {
+    auto dh = [&](vec4 p) { float d = 1e30f; for (auto& h : C.hum) d = std::min(d, glm::length(vec2(p.x - h.x, p.z - h.z))); return d; };
+    std::sort(C.nearRecs.begin(), C.nearRecs.end(), [&](const auto& a, const auto& b) { return dh(a.second) < dh(b.second); });
+    int done = 0;
+    for (auto& [a, p] : C.nearRecs) {
+      if (done >= 32) break;
+      int slot = -1; for (auto& rs : g.match.slots) if (rs.parked && !rs.human && rs.team == (int)a.y) { slot = rs.id; break; }
+      if (slot < 0) continue;   // none free on its side: it holds at the bubble's edge
+      Physics::Hit h; vec3 feet = vec3(p);
+      if (Physics::castRayEx(feet + vec3(0, 2.0f, 0), vec3(0, -1, 0), 6.0f, h)) feet = h.pos;
+      g.match.unpark(slot); g.placeSoldier(slot, feet, glm::degrees(p.w));
+      g.sold[slot].hp = std::min(g.sold[slot].hp, (float)a.w);
+      retireUnit(a.x, (int)a.y, (int)a.z); C.promoted[std::min<uint32_t>(a.y, 1)]++; ++done;
+    }
+    if (done) logf("crowd: %d promoted to soldiers", done);
+    C.nearRecs.clear();
+  }
+  // demotion: an AI soldier beyond every bubble by 60 m for 3 s, not firing in the last 3 s
+  if (g.t >= C.nextDemote || g.t + 2 < C.nextDemote) {
+    C.nextDemote = g.t + 0.5; C.farFor.resize(g.sold.size(), 0.0f); int done = 0;
+    for (int i = 0; i < (int)g.sold.size() && done < 64; ++i) {
+      Soldier& s = g.sold[i];
+      if (!s.inUse || !s.alive || s.human || s.localPlayer || s.zombie || s.team < 0 || s.team > 1 || i >= (int)g.match.slots.size() || g.match.slots[i].human) { C.farFor[i] = 0; continue; }
+      bool far = true; for (auto& h : C.hum) { const float dx = s.feet.x - h.x, dz = s.feet.z - h.z, R = h.w + 60.0f; if (dx * dx + dz * dz < R * R) { far = false; break; } }
+      C.farFor[i] = far ? C.farFor[i] + 0.5f : 0.0f;
+      if (C.farFor[i] < 3.0f || g.t - s.lastShot < 3.0) continue;
+      if (crowdSpawn(g, s.feet, glm::radians(s.yaw), s.team, s.model, s.weapon, 1.4f, s.hp) < 0) break;   // the crowd is full
+      parkSoldier(g, i); C.farFor[i] = 0; ++done;
+    }
+    if (done) logf("crowd: %d soldiers went into the crowd", done);
+  }
+  for (int t = 0; t < 2; ++t) { g.match.armyAlive[t] = crowdAlive(t); g.match.armyKills[1 - t] = C.dead[t]; }   // the score
+  (void)dt;
+}
+int crowdAlive(int team) { return team < 0 || team > 1 ? 0 : C.spawned[team] - C.dead[team] - C.promoted[team]; }
 int crowdDeaths(int team) { return team < 0 || team > 1 ? 0 : C.dead[team]; }
 
-int crowdSpawn(Game& g, vec3 feet, float yaw, int team, int model, int gun, float speed) {
+int crowdSpawn(Game& g, vec3 feet, float yaw, int team, int model, int gun, float speed, float hp) {
   if (C.n + (int)C.stageU.size() >= kCap) return -1;
   if (!ensureGpu(g)) return -1;
   const int ti = typeIndex(g, model, gun); if (ti < 0) return -1;
   if (C.stageU.empty()) C.stageFrom = C.n + (int)C.stageU.size();
   CrowdUnit u; u.pos = vec4(feet.x, g.app.terrain.height(feet.x, feet.z), feet.z, yaw); u.prev = u.pos; u.anim = vec4(0, (float)((C.n * 37) % 100) * 0.0137f, (float)team, 1);
-  CrowdSim s; s.a = vec4(0, 0, 100, speed); s.b = glm::ivec4(team, ti, 0, -1); s.c = vec4((float)((C.n + (int)C.stageU.size()) % 97) * 0.02f, 0, glm::radians(1.1f), 150.0f);   // rifleman sigma (archetypes.json), 150 m
+  CrowdSim s; s.a = vec4(0, 0, std::max(1.0f, hp), speed); s.b = glm::ivec4(team, ti, 0, -1); s.c = vec4((float)((C.n + (int)C.stageU.size()) % 97) * 0.02f, 0, glm::radians(1.1f), 150.0f);   // rifleman sigma (archetypes.json), 150 m
   C.spawned[std::clamp(team, 0, 1)]++;
   C.stageU.push_back(u); C.stageS.push_back(s);
   return C.stageFrom + (int)C.stageU.size() - 1;
@@ -330,7 +436,7 @@ void crowdGoal(Game& g, int team, vec3 goal) { if (team < 0 || team > 1) return;
 
 void crowdReset() {
   for (auto& [k, t] : C.types) crowdDestroy(t);
-  for (GLuint b : {C.units, C.sim, C.cnt, C.idx, C.height, C.costBuf, C.vis, C.visCnt, C.cmd, C.cmdBucket, C.pc, C.pid, C.dmg, C.deaths}) if (b) glDeleteBuffers(1, &b);
+  for (GLuint b : {C.units, C.sim, C.cnt, C.idx, C.height, C.costBuf, C.vis, C.visCnt, C.cmd, C.cmdBucket, C.pc, C.pid, C.dmg, C.deaths, C.nearBuf}) if (b) glDeleteBuffers(1, &b);
   for (GLuint p : {C.progHash, C.progMove, C.progCull, C.progCmd, C.progFight}) if (p) glDeleteProgram(p);
   C = GpuCrowd{};
 }
@@ -352,7 +458,7 @@ void crowdFrame(Game& g) {
   // bind and run: hash, move, cull, commands
   const GLuint bufs[10] = {C.units, C.sim, C.cnt, C.idx, C.height, C.costBuf, C.vis, C.visCnt, C.cmd, C.cmdBucket};
   for (int k = 0; k < 10; ++k) glBindBufferBase(GL_SHADER_STORAGE_BUFFER, k, bufs[k]);
-  const GLuint bufs3[4] = {C.pc, C.pid, C.dmg, C.deaths}; for (int k = 0; k < 4; ++k) glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 10 + k, bufs3[k]);   // GC3
+  const GLuint bufs3[5] = {C.pc, C.pid, C.dmg, C.deaths, C.nearBuf}; for (int k = 0; k < 5; ++k) glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 10 + k, bufs3[k]);   // GC3, GC4
   ++C.frame;
   const GLuint groups = (GLuint)((C.n + 127) / 128); const uint32_t zero = 0;
   auto common = [&](GLuint p) { glUseProgram(p); glUniform1i(glGetUniformLocation(p, "uN"), C.n); glUniform1i(glGetUniformLocation(p, "uNx"), C.g.nx); glUniform1i(glGetUniformLocation(p, "uNz"), C.g.nz);
@@ -362,7 +468,16 @@ void crowdFrame(Game& g) {
     glClearNamedBufferData(C.cnt, GL_R32UI, GL_RED_INTEGER, GL_UNSIGNED_INT, &zero); glClearNamedBufferData(C.pc, GL_R32UI, GL_RED_INTEGER, GL_UNSIGNED_INT, &zero);
     common(C.progHash); glDispatchCompute(groups, 1, 1); glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
     common(C.progFight); glDispatchCompute(groups, 1, 1); glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);   // GC3
-    common(C.progMove); glDispatchCompute(groups, 1, 1); glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+    common(C.progMove);
+    { const int nh = std::min<int>(16, (int)C.hum.size()); glUniform1i(glGetUniformLocation(C.progMove, "uNH"), nh); if (nh) glUniform4fv(glGetUniformLocation(C.progMove, "uHum"), nh, glm::value_ptr(C.hum[0]));
+      C.nearOn = nh > 0 && C.frame % 15 == 0; glUniform1i(glGetUniformLocation(C.progMove, "uNearOn"), C.nearOn ? 1 : 0); }   // GC4: the near list on every 15th frame
+    glDispatchCompute(groups, 1, 1); glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+    if (C.nearOn) {   // GC4: read the frame's near list now (<= 1024 x 32 B) and restart it
+      uint32_t nn = 0; glGetNamedBufferSubData(C.nearBuf, 0, 4, &nn); nn = std::min<uint32_t>(nn, 1024); C.nearRecs.clear();
+      if (nn) { std::vector<uint32_t> raw((size_t)nn * 8); glGetNamedBufferSubData(C.nearBuf, 16, raw.size() * 4, raw.data());
+                for (uint32_t k = 0; k < nn; ++k) { glm::uvec4 a(raw[k * 8], raw[k * 8 + 1], raw[k * 8 + 2], raw[k * 8 + 3]); vec4 p; std::memcpy(&p, &raw[k * 8 + 4], 16); C.nearRecs.push_back({a, p}); }
+                const uint32_t z = 0; glNamedBufferSubData(C.nearBuf, 0, 4, &z); }
+    }
   }
   glClearNamedBufferData(C.visCnt, GL_R32UI, GL_RED_INTEGER, GL_UNSIGNED_INT, &zero);
   const Frustum fr = Frustum::fromVP(R.lastViewProj()); const vec3 eye = g.app.eyePos();

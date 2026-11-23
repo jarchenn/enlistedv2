@@ -1409,6 +1409,7 @@ void Game::stepRest(float dt) {
   gren.particles(app.fx, t, dt);
   // match rules
   match.update(dt);
+  crowdArmyStep(*this, dt);   // GC4 army mode: reserves, promotion, demotion, the crowd's score
   crumb("game: spawns");
   for (int slot : match.spawnQueue()) {
     if (sold[slot].localPlayer && !deployReady && t - deployOpenedAt < kDeployAuto) continue;   // GM1: the deploy screen is open

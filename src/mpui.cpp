@@ -26,7 +26,16 @@ static ImU32 factionCol(Faction f, int a = 255) { return f == Faction::Allies ? 
 static const char* factionTag(Faction f) { return f == Faction::Allies ? "[US]" : "[GER]"; }
 // AI3: a typed integer. Enter, Tab or clicking away commits (clamped to lo..hi), Esc reverts; letters are not accepted.
 // The text being typed is kept here between frames, so the rules only change on commit.
-static bool intField(const char* label, int& v, int lo, int hi, bool showRange = true) {
+static bool intField(const char* label, int& v, int lo, int hi, bool showRange = true);
+// GC4 army mode: per side, AI beyond the roster as the GPU crowd (crowd.cpp)
+static void armyFields(ScenarioRules& rules, const char* a, const char* b) {
+  ImGui::SeparatorText("ARMY MODE (GPU CROWD)");
+  for (int t = 0; t < 2; ++t) { ImGui::PushID(100 + t); intField(t ? b : a, rules.armyUnits[t], 0, ScenarioRules::kMaxArmy - rules.armyUnits[1 - t]); ImGui::PopID(); }
+  const int n = rules.armyUnits[0] + rules.armyUnits[1];
+  if (n) ImGui::TextDisabled("%d more AI beyond the roster (up to %d). Far from you they march, fight and fall on the GPU; within 150 m (350 m through a scope) they become full soldiers, and soldiers far from every player go back into the crowd. Host only: LAN players do not see the crowd yet.", n, ScenarioRules::kMaxArmy);
+  else ImGui::TextDisabled("0: off. Up to %d AI beyond the roster.", ScenarioRules::kMaxArmy);
+}
+static bool intField(const char* label, int& v, int lo, int hi, bool showRange) {
   static std::unordered_map<ImGuiID, int> pend;
   ImGuiID id = ImGui::GetID(label);
   auto it = pend.find(id); int x = it != pend.end() ? it->second : v;
@@ -590,6 +599,7 @@ void MpUi::setupWindow(App& app) {
         ImGui::PopID();
       }
       aiCap();
+      armyFields(rules, "Team A crowd", "Team B crowd");   // GC4
       ImGui::Text("You play on:"); ImGui::SameLine(); ImGui::RadioButton("Team A", &rules.humanTeam, 0); ImGui::SameLine(); ImGui::RadioButton("Team B", &rules.humanTeam, 1);
       if (setupMode == 1) ImGui::TextDisabled("LAN players who join are put on the team with fewer humans.");
     } else {
@@ -603,6 +613,7 @@ void MpUi::setupWindow(App& app) {
       rules.defenderSlots = std::max(1, humans + rules.aiSum(0)); rules.attackerAI = std::max(1, rules.aiSum(1));
       if (rules.aiSum(1) == 0) ImGui::TextColored(ImVec4(1, 0.55f, 0.45f, 1), "At least one attacking AI: 1 soldier is used.");
       aiCap();
+      armyFields(rules, "Defending crowd", "Attacking crowd");   // GC4
       int lives = 1 + rules.attackerRespawns;
       ImGui::Text("Humans %d  |  Friendly AI %d  |  Enemy AI %d  |  Total %d / %d", humans, rules.defenderSlots - humans, rules.attackerAI, rules.defenderSlots + rules.attackerAI, ScenarioRules::kMaxCombatants);
       ImGui::TextDisabled("Each attacking slot: 1 life + %d respawns = %d lives (%d attacker lives in all)", rules.attackerRespawns, lives, lives * rules.attackerAI);
