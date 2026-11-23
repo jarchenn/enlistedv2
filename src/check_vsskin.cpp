@@ -75,6 +75,7 @@ static void testCrowd(App& a, GLuint prog) {
   const char* mid = std::getenv("NMK_CROWD_MODEL") ? std::getenv("NMK_CROWD_MODEL") : "allied_body";
   const char* gid = std::getenv("NMK_CROWD_GUN") ? std::getenv("NMK_CROWD_GUN") : "m1_garand";
   { std::string e; chk(crowdShadersBuild(e), "crowd: compute programs build" + (e.empty() ? std::string() : " (" + e + " failed)")); }
+  for (auto& [ok, w] : crowdSimSelfTest()) chk(ok, "crowd: " + w);   // GC2-GC3 stepped
   CharModel m; std::string err;
   if (!m.load(contentDir() / "characters" / (std::string(mid) + ".glb"), err)) { chk(false, std::string("crowd: load ") + mid + ": " + err); return; }
   const WeaponDef* w = nullptr; for (auto& d : a.weaponDefs) if (d->id == gid) w = d.get();

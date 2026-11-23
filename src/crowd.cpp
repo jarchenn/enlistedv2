@@ -262,9 +262,10 @@ void buildCost(int team, vec3 goal) {
   }
   C.costDirty[team] = true;
 }
-bool ensureGpu(Game& g) {
+bool ensureGpu(Game* g) {   // g null: the grid is already set (the self-test)
   if (C.units) return C.progMove != 0;
-  if (!C.gridOk) C.gridOk = buildGrid(g);
+  if (!C.gridOk && g) C.gridOk = buildGrid(*g);
+  if (!C.gridOk) return false;
   const std::string com = kCrowdCommon;
   C.progHash = compileCS(com + kHashCS, "hash"); C.progFight = compileCS(com + kFightCS, "fight"); C.progMove = compileCS(com + kMoveCS, "move"); C.progCull = compileCS(com + kCullCS, "cull"); C.progCmd = compileCS(kCmdCS, "commands");
   const size_t cells = (size_t)C.g.nx * C.g.nz;
@@ -321,6 +322,56 @@ bool crowdShadersBuild(std::string& err) {   // --check-crowd: every crowd compu
   for (auto& [s, n] : src) { GLuint p = compileCS(s, n); if (!p) { err = n; return false; } glDeleteProgram(p); }
   return true;
 }
+static void uploadStaged(); static void bindAll(); static void simPasses(float dt); static void readDeaths();   // below crowdFrame
+// ---- --check-crowd: the simulation on a synthetic map (no Game): 200 x 200 cells of 2 m, flat at y 5, a wall of unwalkable
+// cells at x 0..2 m from z -200 to +80 (the way round: north of it), two armies of 2,000 facing each other 200 m apart, each sent
+// to the other's side; 30 s at 30 Hz, then every unit read back
+std::vector<std::pair<bool, std::string>> crowdSimSelfTest() {
+  std::vector<std::pair<bool, std::string>> r; auto chk = [&](bool ok, const std::string& w) { r.push_back({ok, w}); };
+  crowdReset();
+  Grid& G = C.g; G.cell = 2; G.nx = G.nz = 200; G.org = vec2(-200, -200); const size_t N = (size_t)G.nx * G.nz;
+  G.h.assign(N, 5.0f); G.walk.assign(N, 1); for (int z = 0; z < 140; ++z) G.walk[(size_t)z * G.nx + 100] = 0;
+  C.gridOk = true;
+  if (!ensureGpu(nullptr)) { chk(false, "sim: GPU buffers / programs"); crowdReset(); return r; }
+  const int per = 2000; std::vector<vec3> start;
+  for (int t = 0; t < 2; ++t) for (int k = 0; k < per; ++k) {
+    const float x = (t ? 100.0f : -130.0f) + (k % 20) * 1.5f, z = -60.0f + (k / 20) * 1.5f;
+    CrowdUnit u; u.pos = vec4(x, 5.0f, z, t ? 1.5708f : -1.5708f); u.prev = u.pos; u.anim = vec4(0, 0, (float)t, 1);
+    CrowdSim s; s.a = vec4(0, 0, 100, 1.4f); s.b = glm::ivec4(t, 0, 0, -1); s.c = vec4((float)(k % 97) * 0.02f, 0, glm::radians(1.1f), 150.0f);
+    if (C.stageU.empty()) C.stageFrom = 0; C.stageU.push_back(u); C.stageS.push_back(s); C.spawned[t]++; start.push_back(vec3(u.pos));
+  }
+  buildCost(0, vec3(170, 0, 0)); buildCost(1, vec3(-170, 0, 0));
+  uploadStaged(); const float dt = 1.0f / 30.0f;
+  for (int f = 0; f < 900; ++f) { bindAll(); ++C.frame; simPasses(dt); if (f % 8 == 7) readDeaths(); }
+  readDeaths(); glFinish();
+  std::vector<CrowdUnit> U(C.n); std::vector<CrowdSim> S(C.n);
+  glGetNamedBufferSubData(C.units, 0, U.size() * sizeof(CrowdUnit), U.data()); glGetNamedBufferSubData(C.sim, 0, S.size() * sizeof(CrowdSim), S.data());
+  int nan = 0, off = 0, wall = 0, tooFar = 0, st[2][4] = {}; double dx[2] = {0, 0}; int nAlive[2] = {0, 0};
+  for (int i = 0; i < C.n; ++i) {
+    const vec4 p = U[i].pos; const int t = std::clamp(S[i].b.x, 0, 1), z = std::clamp(S[i].b.z, 0, 3); ++st[t][z];
+    if (!std::isfinite(p.x) || !std::isfinite(p.y) || !std::isfinite(p.z) || !std::isfinite(p.w) || !std::isfinite(S[i].a.x) || !std::isfinite(S[i].a.z)) { ++nan; continue; }
+    if (std::fabs(p.y - 5.0f) > 0.01f) ++off;
+    const int cx = std::clamp((int)((p.x - G.org.x) / G.cell), 0, G.nx - 1), cz = std::clamp((int)((p.z - G.org.y) / G.cell), 0, G.nz - 1);
+    if (!G.walk[(size_t)cz * G.nx + cx]) ++wall;
+    if (glm::length(vec2(p.x - start[i].x, p.z - start[i].z)) > 1.4f * 1.3f * 30.0f + 3.0f) ++tooFar;   // never faster than the speed cap (+ the separation)
+    if (z == 0) { dx[t] += p.x - start[i].x; ++nAlive[t]; }
+  }
+  chk(nan == 0, "sim: no NaN (" + std::to_string(nan) + ")");
+  chk(off == 0, "sim: every unit on the ground (" + std::to_string(off) + " off)");
+  chk(wall == 0, "sim: none on an unwalkable cell (" + std::to_string(wall) + ")");
+  chk(tooFar == 0, "sim: none faster than its speed cap (" + std::to_string(tooFar) + ")");
+  for (int t = 0; t < 2; ++t) {
+    const int fallen = st[t][1] + st[t][2] + st[t][3];
+    chk(st[t][0] + fallen == per, "sim: team " + std::to_string(t) + " counted: " + std::to_string(st[t][0]) + " alive + " + std::to_string(fallen) + " fallen = " + std::to_string(per));
+    chk(fallen > 0 && fallen < per, "sim: team " + std::to_string(t) + " lost " + std::to_string(fallen) + " to the other side's fire");
+    chk(C.dead[t] == fallen, "sim: team " + std::to_string(t) + " deaths read back " + std::to_string(C.dead[t]) + " = fallen " + std::to_string(fallen));
+    const double m = nAlive[t] ? dx[t] / nAlive[t] : 0; char b[96]; std::snprintf(b, sizeof b, "sim: team %d advanced %.1f m toward the enemy", t, t ? -m : m);
+    chk((t ? -m : m) > 10.0, b);
+  }
+  crowdReset();
+  return r;
+}
+
 int crowdCount() { return C.n; }
 
 // ---------------------------------------------------------------- GC4 army mode
@@ -424,7 +475,7 @@ int crowdDeaths(int team) { return team < 0 || team > 1 ? 0 : C.dead[team]; }
 
 int crowdSpawn(Game& g, vec3 feet, float yaw, int team, int model, int gun, float speed, float hp) {
   if (C.n + (int)C.stageU.size() >= kCap) return -1;
-  if (!ensureGpu(g)) return -1;
+  if (!ensureGpu(&g)) return -1;
   const int ti = typeIndex(g, model, gun); if (ti < 0) return -1;
   if (C.stageU.empty()) C.stageFrom = C.n + (int)C.stageU.size();
   CrowdUnit u; u.pos = vec4(feet.x, g.app.terrain.height(feet.x, feet.z), feet.z, yaw); u.prev = u.pos; u.anim = vec4(0, (float)((C.n * 37) % 100) * 0.0137f, (float)team, 1);
@@ -443,13 +494,8 @@ void crowdReset() {
   C = GpuCrowd{};
 }
 
-void crowdFrame(Game& g) {
-  Renderer& R = g.app.R; R.crowdDraws.clear();
-  if (!R.perf.crowd) return;
-  const float dt = C.lastT < 0 ? 0.0f : (float)std::clamp(g.t - C.lastT, 0.0, 0.1); C.lastT = g.t;
-  testSource(g);
-  if (!C.units || (C.n == 0 && C.stageU.empty()) || !C.progMove) return;
-  // spawns and fields to the GPU
+// GC2-GC4 one frame's passes, shared by crowdFrame and the self-test
+static void uploadStaged() {
   if (!C.stageU.empty()) {
     glNamedBufferSubData(C.units, (GLintptr)C.stageFrom * sizeof(CrowdUnit), C.stageU.size() * sizeof(CrowdUnit), C.stageU.data());
     glNamedBufferSubData(C.sim, (GLintptr)C.stageFrom * sizeof(CrowdSim), C.stageS.size() * sizeof(CrowdSim), C.stageS.data());
@@ -457,34 +503,51 @@ void crowdFrame(Game& g) {
   }
   const size_t cells = (size_t)C.g.nx * C.g.nz;
   for (int t = 0; t < 2; ++t) if (C.costDirty[t] && C.cost[t].size() == cells) { glNamedBufferSubData(C.costBuf, (GLintptr)(t * cells * 4), cells * 4, C.cost[t].data()); C.costDirty[t] = false; }
-  // bind and run: hash, move, cull, commands
-  const GLuint bufs[10] = {C.units, C.sim, C.cnt, C.idx, C.height, C.costBuf, C.vis, C.visCnt, C.cmd, C.cmdBucket};
-  for (int k = 0; k < 10; ++k) glBindBufferBase(GL_SHADER_STORAGE_BUFFER, k, bufs[k]);
-  const GLuint bufs3[5] = {C.pc, C.pid, C.dmg, C.deaths, C.nearBuf}; for (int k = 0; k < 5; ++k) glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 10 + k, bufs3[k]);   // GC3, GC4
-  ++C.frame;
+}
+static void bindAll() {
+  const GLuint bufs[15] = {C.units, C.sim, C.cnt, C.idx, C.height, C.costBuf, C.vis, C.visCnt, C.cmd, C.cmdBucket, C.pc, C.pid, C.dmg, C.deaths, C.nearBuf};
+  for (int k = 0; k < 15; ++k) glBindBufferBase(GL_SHADER_STORAGE_BUFFER, k, bufs[k]);
+}
+static void setCommon(GLuint p, float dt) {
+  glUseProgram(p); glUniform1i(glGetUniformLocation(p, "uN"), C.n); glUniform1i(glGetUniformLocation(p, "uNx"), C.g.nx); glUniform1i(glGetUniformLocation(p, "uNz"), C.g.nz);
+  glUniform2fv(glGetUniformLocation(p, "uOrg"), 1, glm::value_ptr(C.g.org)); glUniform1f(glGetUniformLocation(p, "uCell"), C.g.cell); glUniform1f(glGetUniformLocation(p, "uDt"), dt);
+  glUniform1i(glGetUniformLocation(p, "uCx"), C.cx); glUniform1i(glGetUniformLocation(p, "uCz"), C.cz); glUniform1f(glGetUniformLocation(p, "uCCell"), C.ccell); glUniform1i(glGetUniformLocation(p, "uFrame"), C.frame);
+}
+static void simPasses(float dt) {   // hash, fight, move (+ the near list on every 15th frame)
   const GLuint groups = (GLuint)((C.n + 127) / 128); const uint32_t zero = 0;
-  auto common = [&](GLuint p) { glUseProgram(p); glUniform1i(glGetUniformLocation(p, "uN"), C.n); glUniform1i(glGetUniformLocation(p, "uNx"), C.g.nx); glUniform1i(glGetUniformLocation(p, "uNz"), C.g.nz);
-                               glUniform2fv(glGetUniformLocation(p, "uOrg"), 1, glm::value_ptr(C.g.org)); glUniform1f(glGetUniformLocation(p, "uCell"), C.g.cell); glUniform1f(glGetUniformLocation(p, "uDt"), dt);
-                               glUniform1i(glGetUniformLocation(p, "uCx"), C.cx); glUniform1i(glGetUniformLocation(p, "uCz"), C.cz); glUniform1f(glGetUniformLocation(p, "uCCell"), C.ccell); glUniform1i(glGetUniformLocation(p, "uFrame"), C.frame); };
-  if (dt > 0) {
-    glClearNamedBufferData(C.cnt, GL_R32UI, GL_RED_INTEGER, GL_UNSIGNED_INT, &zero); glClearNamedBufferData(C.pc, GL_R32UI, GL_RED_INTEGER, GL_UNSIGNED_INT, &zero);
-    common(C.progHash); glDispatchCompute(groups, 1, 1); glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-    common(C.progFight); glDispatchCompute(groups, 1, 1); glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);   // GC3
-    common(C.progMove);
-    { const int nh = std::min<int>(16, (int)C.hum.size()); glUniform1i(glGetUniformLocation(C.progMove, "uNH"), nh); if (nh) glUniform4fv(glGetUniformLocation(C.progMove, "uHum"), nh, glm::value_ptr(C.hum[0]));
-      C.nearOn = nh > 0 && C.frame % 15 == 0; glUniform1i(glGetUniformLocation(C.progMove, "uNearOn"), C.nearOn ? 1 : 0); }   // GC4: the near list on every 15th frame
-    glDispatchCompute(groups, 1, 1); glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-    if (C.nearOn) {   // GC4: read the frame's near list now (<= 1024 x 32 B) and restart it
-      uint32_t nn = 0; glGetNamedBufferSubData(C.nearBuf, 0, 4, &nn); nn = std::min<uint32_t>(nn, 1024); C.nearRecs.clear();
-      if (nn) { std::vector<uint32_t> raw((size_t)nn * 8); glGetNamedBufferSubData(C.nearBuf, 16, raw.size() * 4, raw.data());
-                for (uint32_t k = 0; k < nn; ++k) { glm::uvec4 a(raw[k * 8], raw[k * 8 + 1], raw[k * 8 + 2], raw[k * 8 + 3]); vec4 p; std::memcpy(&p, &raw[k * 8 + 4], 16); C.nearRecs.push_back({a, p}); }
-                const uint32_t z = 0; glNamedBufferSubData(C.nearBuf, 0, 4, &z); }
-    }
+  glClearNamedBufferData(C.cnt, GL_R32UI, GL_RED_INTEGER, GL_UNSIGNED_INT, &zero); glClearNamedBufferData(C.pc, GL_R32UI, GL_RED_INTEGER, GL_UNSIGNED_INT, &zero);
+  setCommon(C.progHash, dt); glDispatchCompute(groups, 1, 1); glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+  setCommon(C.progFight, dt); glDispatchCompute(groups, 1, 1); glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);   // GC3
+  setCommon(C.progMove, dt);
+  { const int nh = std::min<int>(16, (int)C.hum.size()); glUniform1i(glGetUniformLocation(C.progMove, "uNH"), nh); if (nh) glUniform4fv(glGetUniformLocation(C.progMove, "uHum"), nh, glm::value_ptr(C.hum[0]));
+    C.nearOn = nh > 0 && C.frame % 15 == 0; glUniform1i(glGetUniformLocation(C.progMove, "uNearOn"), C.nearOn ? 1 : 0); }   // GC4: the near list on every 15th frame
+  glDispatchCompute(groups, 1, 1); glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+  if (C.nearOn) {   // GC4: read the frame's near list now (<= 1024 x 32 B) and restart it
+    uint32_t nn = 0; glGetNamedBufferSubData(C.nearBuf, 0, 4, &nn); nn = std::min<uint32_t>(nn, 1024); C.nearRecs.clear();
+    if (nn) { std::vector<uint32_t> raw((size_t)nn * 8); glGetNamedBufferSubData(C.nearBuf, 16, raw.size() * 4, raw.data());
+              for (uint32_t k = 0; k < nn; ++k) { glm::uvec4 a(raw[k * 8], raw[k * 8 + 1], raw[k * 8 + 2], raw[k * 8 + 3]); vec4 p; std::memcpy(&p, &raw[k * 8 + 4], 16); C.nearRecs.push_back({a, p}); }
+              const uint32_t z = 0; glNamedBufferSubData(C.nearBuf, 0, 4, &z); }
   }
+}
+static void readDeaths() {   // GC3: the deaths so far, then the list restarts
+  uint32_t nd = 0; glGetNamedBufferSubData(C.deaths, 0, 4, &nd); nd = std::min<uint32_t>(nd, 65536);
+  if (nd) { std::vector<uint32_t> dl((size_t)nd * 2); glGetNamedBufferSubData(C.deaths, 4, dl.size() * 4, dl.data()); for (uint32_t k = 0; k < nd; ++k) C.dead[std::min<uint32_t>(dl[k * 2 + 1], 1)]++;
+            const uint32_t z = 0; glNamedBufferSubData(C.deaths, 0, 4, &z); }
+}
+
+void crowdFrame(Game& g) {
+  Renderer& R = g.app.R; R.crowdDraws.clear();
+  if (!R.perf.crowd) return;
+  const float dt = C.lastT < 0 ? 0.0f : (float)std::clamp(g.t - C.lastT, 0.0, 0.1); C.lastT = g.t;
+  testSource(g);
+  if (!C.units || (C.n == 0 && C.stageU.empty()) || !C.progMove) return;
+  uploadStaged(); bindAll(); ++C.frame;
+  const GLuint groups = (GLuint)((C.n + 127) / 128); const uint32_t zero = 0;
+  if (dt > 0) simPasses(dt);
   glClearNamedBufferData(C.visCnt, GL_R32UI, GL_RED_INTEGER, GL_UNSIGNED_INT, &zero);
   const Frustum fr = Frustum::fromVP(R.lastViewProj()); const vec3 eye = g.app.eyePos();
   const float K = (float)std::max(1, R.displayH) * 1.8f / (2.0f * std::tan(glm::radians(settings().fov()) * 0.5f));
-  common(C.progCull);
+  setCommon(C.progCull, dt);
   vec4 pl[6]; for (int k = 0; k < 6; ++k) pl[k] = k < fr.n ? fr.pl[k] : vec4(0, 0, 0, 1);
   glUniform4fv(glGetUniformLocation(C.progCull, "uPl"), 6, glm::value_ptr(pl[0])); glUniform3fv(glGetUniformLocation(C.progCull, "uEye"), 1, glm::value_ptr(eye));
   glUniform1f(glGetUniformLocation(C.progCull, "uK"), K); glUniform1f(glGetUniformLocation(C.progCull, "uCapB"), (float)kCapB);
@@ -493,11 +556,7 @@ void crowdFrame(Game& g) {
   glDispatchCompute((GLuint)((C.nCmd + 63) / 64), 1, 1);
   glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_COMMAND_BARRIER_BIT | GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT);
   glUseProgram(0);
-  if (g.t >= C.nextDeaths || g.t + 1 < C.nextDeaths) {   // GC3: the deaths so far (a small read back, 4x a second), then the list restarts
-    C.nextDeaths = g.t + 0.25; uint32_t nd = 0; glGetNamedBufferSubData(C.deaths, 0, 4, &nd); nd = std::min<uint32_t>(nd, 65536);
-    if (nd) { std::vector<uint32_t> dl((size_t)nd * 2); glGetNamedBufferSubData(C.deaths, 4, dl.size() * 4, dl.data()); for (uint32_t k = 0; k < nd; ++k) C.dead[std::min<uint32_t>(dl[k * 2 + 1], 1)]++;
-              const uint32_t z = 0; glNamedBufferSubData(C.deaths, 0, 4, &z); }
-  }
+  if (g.t >= C.nextDeaths || g.t + 1 < C.nextDeaths) { C.nextDeaths = g.t + 0.25; readDeaths(); }   // GC3: 4x a second
   { static double nextLog = 0; if (g.t >= nextLog || g.t + 10 < nextLog) { nextLog = g.t + 5;   // a status line every 5 s (a small read back)
       std::vector<uint32_t> vc(kMaxTypes * 2); glGetNamedBufferSubData(C.visCnt, 0, vc.size() * 4, vc.data()); std::string b;
       for (int k = 0; k < (int)C.typeKey.size() * 2; ++k) b += (k ? " " : "") + std::to_string(vc[k]);

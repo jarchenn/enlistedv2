@@ -28,6 +28,7 @@ void crowdDestroy(CrowdType& t);
 struct CrowdSim { vec4 a; glm::ivec4 b; vec4 c; };   // a: velocity x z, hp, wanted speed; b: team, type, state (0 alive, 1 dying, 2 dead, 3 gone), target; c (GC3): shot cooldown, firing, aim sigma (rad), range (m)
 int crowdSpawn(Game& g, vec3 feet, float yaw, int team, int model, int gun, float speed, float hp = 100);   // -1: full or no such type
 void crowdGoal(Game& g, int team, vec3 goal);    // team 0 / 1: the field its units walk down (rebuilt now)
+std::vector<std::pair<bool, std::string>> crowdSimSelfTest();   // --check-crowd: 4,000 units for 30 s on a synthetic map (results to assert)
 bool crowdShadersBuild(std::string& err);         // --check-crowd: the compute programs build (err: the failing one; its log is in the log)
 int crowdCount();                                // units spawned (alive or not)
 int crowdAlive(int team);                        // GC3: spawned minus the deaths read back so far
