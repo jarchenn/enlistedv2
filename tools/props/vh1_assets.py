@@ -20,23 +20,13 @@ import pr8_openings
 from pr10_assets import BLENDER, HERE, ROOT, run
 
 S = 0.29   # metres per source unit
-# VH1c (the user: "undo that change, it looks worse now. the previous exterior stone should be what it looks like both exterior
-# and interior. the roofs should not be reflective. Some of the roofs should use the bricklike texture but some should use this
-# strawlike one. roofs also need to be thicker and not just a flat plane"):
-#  * the outside keeps the model's own textures (VH1b's re-texture undone), made matte (roughness 0.92, no metal);
-#  * the inner walls are lined with each house's own outside stone: a plain square of its wall cut from a flat render of the
-#    original (E:/nmk/village/py/patch3.py -> <VH_TEX>/<asset>_stone/color.jpg, mirrored 2 x 2; its tile in stone_tiles.json);
-#  * the roofs are solidified (0.12 m tiles, 0.35 m thatch); four houses thatched (ambientCG ThatchedRoof001B / 002B, CC0).
-VH_TEX = os.environ.get("VH1_TEX", "E:/nmk/village/tex")
-ROOF = {"vh_cottage_shutters": ("thatch_001b", 0.35), "vh_cottage_tall": ("thatch_002b", 0.35), "vh_longhouse_blue": ("thatch_002b", 0.35),
-        "vh_barn_cottage": ("thatch_001b", 0.35), "vh_manor_tower": (None, 0.12), "vh_stone_house_l": (None, 0.12), "vh_townhouse": (None, 0.12),
-        "vh_timber_house": (None, 0.12)}
-THATCH_TILE = 2.0   # m
-
-
-def stone(bid):
-    tiles = json.load(open(os.path.join(VH_TEX, "stone_tiles.json")))
-    return os.path.join(VH_TEX, bid + "_stone"), tiles[bid]["tile_m"]
+# VH1d (the user, with medieval_house.glb, "Medieval house" by Vanuartw, CC-BY-4.0: "use this as a reference on how the upholstery
+# and framing should look and how the roofs should be done, then repeat the same onto the houses"): tools/props/vh1_style.py
+#  * the walls' stone repainted as pale plaster in their atlases (painted windows, doors, shutters kept), the inside lined
+#    with the same plaster; oak framing on the outer walls (posts, studs, rails, lintels, sills, end braces);
+#  * every roof dark wooden shingle (the reference's), 0.22 m thick, oak edges and soffits, eaves swept up; all matte.
+TEX = os.path.join(ROOT, "content", "textures")
+PLASTER, OAK, SHINGLE = os.path.join(TEX, "plaster_old"), os.path.join(TEX, "oak_aged"), os.path.join(TEX, "roofing_tiles_009")
 CREDIT = ("House Village", "remib74", "CC-BY-4.0", "https://sketchfab.com/3d-models/house-village-a5d6dae1ff424adca8978a143769ab2d")
 T = 0.5    # wall collider thickness inward (source units, 15 cm)
 U = 1 / S  # source units per metre
@@ -247,8 +237,7 @@ def lining(bid, doors, holes):
         for w in ([x0, x1, y0, y0 + t], [x0, x1, y1 - t, y1], [x0, x0 + t, y0, y1], [x1 - t, x1, y0, y1]):
             bx = [([w[0], w[2], z0], [w[1], w[3], z1])]
             for c in cuts: bx = [q for b in bx for q in pr8_openings.subtract(b, c)]
-            st, tm = stone(bid)
-            out += [{"box": [lo[0], hi[0], lo[1], hi[1], lo[2], hi[2]], "tex": st, "tile": tm / S} for lo, hi in bx]
+            out += [{"box": [lo[0], hi[0], lo[1], hi[1], lo[2], hi[2]], "tex": "plaster_old", "tile": 2.5 / S} for lo, hi in bx]
     return out
 
 
@@ -258,16 +247,18 @@ def mark(x, y, z=0.1): return [x - 0.03, x + 0.03, y - 0.03, y + 0.03, z, z + 0.
 def convert(src_dir, glbs):
     os.makedirs(glbs, exist_ok=True)
     for bid, B in H.items():
-        if os.path.exists(os.path.join(glbs, bid + ".glb")): continue
+        if os.path.exists(os.path.join(glbs, bid + ".glb")) or (os.environ.get("VH1_ONLY") and bid not in os.environ["VH1_ONLY"].split(",")): continue
         walls, floor, doors, cuts, holes = boxes(bid)
         F = furnish(bid)
         marks = {**{k: v[3] for k, v in doors.items()}, **holes, "floor": floor, **{"f%d" % i: mark(f[1], f[2], floor[5]) for i, f in enumerate(F)}}
         piece = {"id": bid, "objects": None, "boxes": walls, "marks": marks, "cut_out": cuts,
                  "add_boxes": [{**b, "tex": os.path.join(ROOT, "content", "textures", b["tex"])} for b in lining(bid, doors, holes)],
                  "scale": S, "yaw": 0}
-        rt, th = ROOF[bid]
         piece["matte"] = 0.92
-        piece["roof"] = {"thick": th / S, "min_nz": 0.3, "min_z": 4.0, **({"tex": os.path.join(VH_TEX, rt), "tile": THATCH_TILE / S} if rt else {})}
+        piece["plaster"] = {"tex": PLASTER, "rep": 3, "blob": 7, "timber": OAK, "timber_tile": 1.5 / S}
+        piece["frame"] = {"outline": B["outline"], "Hc": B["Hc"], "S": S, "w": 0.2 / S, "proud": 0.06 / S, "step": 0.1 / S,
+                          "spacing": 1.6 / S, "sole": 0.35 / S, "win": (1.3 / S, 1.9 / S), "tex": OAK, "tile": 1.5 / S}
+        piece["roof"] = {"thick": 0.22 / S, "min_nz": 0.3, "min_z": 4.0, "tex": SHINGLE, "tile": 1.2 / S, "rim_tex": OAK, "sweep": (0.9 / S, 0.18 / S, 0.3 / S)}
         run({"src": os.path.join(src_dir, B["key"] + ".glb"), "out": glbs, "pieces": [piece]}, glbs, bid)
 
 
@@ -278,7 +269,7 @@ def write(src_dir, glbs):
         walls, floor, doors, cuts, holes = boxes(bid)
         credit = "%s by %s, %s (%s)" % CREDIT
         A = {"id": bid, "version": 1, "name": B["name"], "category": "Houses", "themes": ["wwii", "postapoc", "modern"],
-             "description": "%s from the House Village set: stone walls, tiled roof, enterable through its door (E), the ground-floor windows open; furnished. %.1f x %.1f m, %.1f m high." % (B["name"], sx * 1, sz, sy),
+             "description": "%s from the House Village set: oak-framed plaster walls, shingle roof, enterable through its door (E), the ground-floor windows open; furnished. %.1f x %.1f m, %.1f m high." % (B["name"], sx * 1, sz, sy),
              "footprint": [round(sx, 3), round(sz, 3)], "floors": 0, "enterable": False, "plinthDepth": 0, "noAutoPanels": True, "maxGrade": 2,
              "model": {"pivot": "ground", "scale": 1, "jpgMaps": True, "lod1": 0.3, "src": bid + ".glb", "dir": bid, "maxTex": 2048, "credit": credit, "lodDist": 40, "cullDist": 600},
              "nav": {"effect": "carve", "rooms": [], "doors": [], "entrances": [], "corners": [], "firingPoints": [], "areas": [], "cover": []},

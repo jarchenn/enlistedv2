@@ -1,14 +1,14 @@
 {
  "animDuration": 0.0,
  "bmax": [
-  2.9874844551086426,
+  2.990600347518921,
   7.826177597045898,
-  4.9712419509887695
+  5.027599334716797
  ],
  "bmin": [
   -2.990600347518921,
   0.0,
-  -4.985458850860596
+  -5.027599334716797
  ],
  "materials": [
   {
@@ -16,23 +16,28 @@
    "name": "Mat_2"
   },
   {
-   "albedo": "albedo_2.jpg",
+   "albedo": "albedo_1.jpg",
+   "name": "vh1_oak"
+  },
+  {
+   "albedo": "albedo_3.jpg",
    "name": "vh1_roof",
-   "normal": "normal_1.jpg"
+   "normal": "normal_2.jpg"
   },
   {
-   "albedo": "albedo_4.jpg",
+   "albedo": "albedo_5.jpg",
    "name": "pr10_floor_boards_old",
-   "normal": "normal_3.jpg"
-  },
-  {
-   "albedo": "albedo_6.jpg",
-   "name": "pr10_beam_weathered",
-   "normal": "normal_5.jpg"
+   "normal": "normal_4.jpg"
   },
   {
    "albedo": "albedo_7.jpg",
-   "name": "pr10_vh_longhouse_blue_stone"
+   "name": "pr10_beam_weathered",
+   "normal": "normal_6.jpg"
+  },
+  {
+   "albedo": "albedo_9.jpg",
+   "name": "pr10_plaster_old",
+   "normal": "normal_8.jpg"
   }
  ],
  "parts": [
@@ -44,16 +49,16 @@
     1.0
    ],
    "bmax": [
-    2.3157083988189697,
+    2.240586519241333,
     7.826177597045898,
-    4.524699687957764
+    4.488508701324463
    ],
    "bmin": [
-    -2.424022912979126,
+    -2.329270124435425,
     0.0,
     -4.5400710105896
    ],
-   "count": 405,
+   "count": 273,
    "first": 0,
    "mat": 0,
    "metal": 0.0,
@@ -70,18 +75,44 @@
     1.0
    ],
    "bmax": [
-    2.9874844551086426,
+    2.990600347518921,
     7.826177597045898,
-    4.9712419509887695
+    5.027599334716797
    ],
    "bmin": [
     -2.990600347518921,
-    2.4765233993530273,
-    -4.985458850860596
+    0.0,
+    -5.027599334716797
    ],
-   "count": 450,
-   "first": 405,
+   "count": 1485,
+   "first": 273,
    "mat": 1,
+   "metal": 0.0,
+   "name": "Cube_1_Mat_0.002",
+   "role": "body",
+   "rough": 0.9200000166893005,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    2.990600347518921,
+    7.826177597045898,
+    5.027599334716797
+   ],
+   "bmin": [
+    -2.990600347518921,
+    0.4051002860069275,
+    -5.027599334716797
+   ],
+   "count": 216,
+   "first": 1758,
+   "mat": 2,
    "metal": 0.0,
    "name": "Cube_1_Mat_0.002",
    "role": "body",
@@ -106,8 +137,8 @@
     -4.329699993133545
    ],
    "count": 36,
-   "first": 855,
-   "mat": 2,
+   "first": 1974,
+   "mat": 3,
    "metal": 0.0,
    "name": "Cube_1_Mat_0.002",
    "role": "body",
@@ -132,8 +163,8 @@
     -4.329699993133545
    ],
    "count": 36,
-   "first": 891,
-   "mat": 3,
+   "first": 2010,
+   "mat": 4,
    "metal": 0.0,
    "name": "Cube_1_Mat_0.002",
    "role": "body",
@@ -158,8 +189,8 @@
     -4.325349807739258
    ],
    "count": 258,
-   "first": 927,
-   "mat": 4,
+   "first": 2046,
+   "mat": 5,
    "metal": 0.0,
    "name": "Cube_1_Mat_0.002",
    "role": "body",
@@ -176,6 +207,6 @@
  "scale": 1.0,
  "source": "vh_longhouse_blue.glb",
  "textures": {},
- "triangles": 395,
- "vertices": 430
+ "triangles": 768,
+ "vertices": 1006
 }

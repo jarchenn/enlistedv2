@@ -16,23 +16,28 @@
    "name": "Mat_2"
   },
   {
-   "albedo": "albedo_2.jpg",
+   "albedo": "albedo_1.jpg",
+   "name": "vh1_oak"
+  },
+  {
+   "albedo": "albedo_3.jpg",
    "name": "vh1_roof",
-   "normal": "normal_1.jpg"
+   "normal": "normal_2.jpg"
   },
   {
-   "albedo": "albedo_4.jpg",
+   "albedo": "albedo_5.jpg",
    "name": "pr10_floor_boards_old",
-   "normal": "normal_3.jpg"
-  },
-  {
-   "albedo": "albedo_6.jpg",
-   "name": "pr10_beam_weathered",
-   "normal": "normal_5.jpg"
+   "normal": "normal_4.jpg"
   },
   {
    "albedo": "albedo_7.jpg",
-   "name": "pr10_vh_longhouse_blue_stone"
+   "name": "pr10_beam_weathered",
+   "normal": "normal_6.jpg"
+  },
+  {
+   "albedo": "albedo_9.jpg",
+   "name": "pr10_plaster_old",
+   "normal": "normal_8.jpg"
   }
  ],
  "parts": [
@@ -53,7 +58,7 @@
     0.0,
     -4.5400710105896
    ],
-   "count": 1356,
+   "count": 918,
    "first": 0,
    "mat": 0,
    "metal": 0.0,
@@ -76,12 +81,38 @@
    ],
    "bmin": [
     -2.990600347518921,
-    1.772146224975586,
+    0.0,
     -5.027599334716797
    ],
-   "count": 1512,
-   "first": 1356,
+   "count": 4950,
+   "first": 918,
    "mat": 1,
+   "metal": 0.0,
+   "name": "Cube_1_Mat_0.002",
+   "role": "body",
+   "rough": 0.9200000166893005,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    2.990600347518921,
+    7.826177597045898,
+    5.027599334716797
+   ],
+   "bmin": [
+    -2.990600347518921,
+    0.4051002860069275,
+    -5.027599334716797
+   ],
+   "count": 738,
+   "first": 5868,
+   "mat": 2,
    "metal": 0.0,
    "name": "Cube_1_Mat_0.002",
    "role": "body",
@@ -106,8 +137,8 @@
     -4.329699993133545
    ],
    "count": 36,
-   "first": 2868,
-   "mat": 2,
+   "first": 6606,
+   "mat": 3,
    "metal": 0.0,
    "name": "Cube_1_Mat_0.002",
    "role": "body",
@@ -132,8 +163,8 @@
     -4.329699993133545
    ],
    "count": 36,
-   "first": 2904,
-   "mat": 3,
+   "first": 6642,
+   "mat": 4,
    "metal": 0.0,
    "name": "Cube_1_Mat_0.002",
    "role": "body",
@@ -158,8 +189,8 @@
     -4.329699993133545
    ],
    "count": 864,
-   "first": 2940,
-   "mat": 4,
+   "first": 6678,
+   "mat": 5,
    "metal": 0.0,
    "name": "Cube_1_Mat_0.002",
    "role": "body",
@@ -176,6 +207,6 @@
  "scale": 1.0,
  "source": "vh_longhouse_blue.glb",
  "textures": {},
- "triangles": 1268,
- "vertices": 1827
+ "triangles": 2514,
+ "vertices": 4384
 }

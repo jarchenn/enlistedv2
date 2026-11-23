@@ -209,52 +209,11 @@ for P in job["pieces"]:
             bmesh.ops.bisect_plane(bm, geom=list(gs), plane_co=co, plane_no=n)
         gone = [f for f in bm.faces if all(lo[k] - 1e-4 <= f.calc_center_median()[k] <= hi[k] + 1e-4 for k in range(3))]
         bmesh.ops.delete(bm, geom=gone, context="FACES"); bm.to_mesh(ob.data); bm.free()
-    if P.get("retex"):   # VH1: plain stone wall faces of a baked atlas re-textured with a tiling stone at real size (the atlas's stones read as boulders):
-        # each wall face's texels sampled from its atlas and compared with the walls' median colour (mostly stone); a face that is
-        # stone throughout gets the tiling texture with world-scale UVs; faces with painted windows, timber, doors keep the atlas
-        import numpy as np, random
-        RT = P["retex"]; rnd = random.Random(1); me = ob.data; uvl = me.uv_layers.active
-        px = {}
-        def pixels(mi):
-            if mi in px: return px[mi]
-            m = ob.material_slots[mi].material; im = next((n.image for n in m.node_tree.nodes if n.type == "TEX_IMAGE" and n.image and n.image.size[0]), None) if m and m.use_nodes else None
-            if im is None: px[mi] = None; return None
-            w, h = im.size; a = np.empty(w * h * 4, np.float32); im.pixels.foreach_get(a); px[mi] = (a.reshape(h, w, 4)[:, :, :3], w, h); return px[mi]
-        samples = {}
-        for p in me.polygons:
-            if abs(p.normal.z) > 0.3 or p.area < 1e-4: continue
-            ax_ = 0 if abs(p.normal.x) >= abs(p.normal.y) else 1; vs_ = [me.vertices[v].co for v in p.vertices]
-            if min(max(v[1 - ax_] for v in vs_) - min(v[1 - ax_] for v in vs_), max(v.z for v in vs_) - min(v.z for v in vs_)) < RT.get("thin", 0.75): continue   # timber: posts and beams are thin strips of their own
-            P_ = pixels(p.material_index)
-            if P_ is None: continue
-            img, w, h = P_; uvs = [uvl.data[li].uv.copy() for li in p.loop_indices]; cs = []
-            for _ in range(RT.get("n", 40)):   # random points in the face's UV fan
-                k = rnd.randrange(1, len(uvs) - 1); a, b = rnd.random(), rnd.random()
-                if a + b > 1: a, b = 1 - a, 1 - b
-                u = uvs[0] + (uvs[k] - uvs[0]) * a + (uvs[k + 1] - uvs[0]) * b
-                cs.append(img[min(h - 1, max(0, int((u.y % 1.0) * h))), min(w - 1, max(0, int((u.x % 1.0) * w)))])
-            samples[p.index] = np.array(cs)
-        if samples:
-            # stone unless the face shows painted detail: window glass / dark openings (very dark), frames (very bright),
-            # painted shutters and doors (blue), more than a share of its texels
-            def feat(c):
-                l = c @ np.array([0.2126, 0.7152, 0.0722], np.float32)
-                return (l < RT.get("dark", 0.035)) | (l > RT.get("bright", 0.72)) | ((c[:, 2] > c[:, 0] + 0.06) & (c[:, 2] > 0.22)) | ((c[:, 0] > c[:, 1] + 0.12) & (c[:, 0] > c[:, 2] + 0.14))   # + red-painted timber
-            stone = [i for i, c in samples.items() if np.mean(feat(c)) <= RT.get("feat", 0.12)]
-            mat = bpy.data.materials.new("vh1_stone"); mat.use_nodes = True; N, L = mat.node_tree.nodes, mat.node_tree.links
-            bs = next(n for n in N if n.type == "BSDF_PRINCIPLED"); bs.inputs["Roughness"].default_value = 0.9
-            ti = N.new("ShaderNodeTexImage"); ti.image = bpy.data.images.load(os.path.join(RT["tex"], "color.jpg"), check_existing=True); L.new(ti.outputs[0], bs.inputs["Base Color"])
-            if os.path.exists(os.path.join(RT["tex"], "normal.jpg")):
-                nt = N.new("ShaderNodeTexImage"); nt.image = bpy.data.images.load(os.path.join(RT["tex"], "normal.jpg"), check_existing=True); nt.image.colorspace_settings.name = "Non-Color"
-                nm = N.new("ShaderNodeNormalMap"); L.new(nt.outputs[0], nm.inputs["Color"]); L.new(nm.outputs[0], bs.inputs["Normal"])
-            me.materials.append(mat); smi = len(me.materials) - 1; t = RT["tile"]
-            for i in stone:
-                p = me.polygons[i]; p.material_index = smi; n = p.normal
-                ax = 0 if abs(n.x) >= abs(n.y) else 1; ua = 1 - ax   # along the wall: the other horizontal axis
-                for li in p.loop_indices:
-                    co = me.vertices[me.loops[li].vertex_index].co
-                    uvl.data[li].uv = (co[ua] / t, co.z / t)
-            print("PR6 retex %s: %d of %d wall faces to %s" % (P["id"], len(stone), len(samples), os.path.basename(RT["tex"])))
+    FE = {}
+    if P.get("plaster") or P.get("frame"):   # VH1d: the House Village restyle (tools/props/vh1_style.py)
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import vh1_style
+        if P.get("plaster"): FE = vh1_style.plaster(ob, P["plaster"], job["out"])
+        if P.get("frame"): ob, nfr = vh1_style.frame(ob, P["frame"], FE); print("PR6 frame %s: %d members" % (P["id"], nfr))
     if P.get("matte"):   # VH1c: the model's own materials dull (its roofs read as wet / reflective): no roughness / metal maps, rough, not metal
         for sl in ob.material_slots:
             m = sl.material
@@ -301,10 +260,15 @@ for P in job["pieces"]:
             rb = bm.copy(); rb.faces.ensure_lookup_table()
             bmesh.ops.delete(rb, geom=[f for f in rb.faces if f.index not in rs], context="FACES")
             bmesh.ops.delete(bm, geom=[f for f in bm.faces if f.index in rs], context="FACES"); bm.to_mesh(me); bm.free()
+            if RF.get("sweep"):   # VH1d: eaves turned up
+                sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import vh1_style
+                print("PR6 roof %s: %d eave verts swept" % (P["id"], vh1_style.sweep(rb, *RF["sweep"])))
             rme = bpy.data.meshes.new("roof"); rb.to_mesh(rme); rb.free()
             for m in me.materials: rme.materials.append(m)
             ro = bpy.data.objects.new("roof", rme); bpy.context.scene.collection.objects.link(ro)
             md = ro.modifiers.new("sol", "SOLIDIFY"); md.thickness = RF["thick"]; md.offset = -1; md.use_rim = True; md.use_even_offset = True
+            if RF.get("rim_tex") and RF.get("tex"):   # VH1d: the roof's edges and underside in wood (barge boards, soffits)
+                rme.materials.append(vh1_style.material("vh1_oak", RF["rim_tex"])); md.material_offset = md.material_offset_rim = len(rme.materials) - 1 - rmi
             for o_ in bpy.context.selected_objects: o_.select_set(False)
             bpy.context.view_layer.objects.active = ro; ro.select_set(True); bpy.ops.object.modifier_apply(modifier=md.name)
             ob = join([ob, ro])
