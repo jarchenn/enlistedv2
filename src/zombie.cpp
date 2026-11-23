@@ -1203,6 +1203,17 @@ int ar1SelfCheck() {
         std::vector<std::string> need = t.walkClips; need.push_back(t.runClip); for (auto* v : {&t.idleClips, &t.attackClips, &t.damageClips, &t.deathClips}) need.insert(need.end(), v->begin(), v->end());
         for (auto& c : need) ok = ok && names.count(c); ok = ok && bones; msg = std::to_string(names.size()) + " clips in its GLB, every one it names; joints under Mixamo names"; } }
     chk(ok && (int)AiType::RomanArcher == 53 && std::string(aiTypeName(AiType::RomanArcher)) == "Roman Archer", "Roman Archer (RA1): AI type 53, Archer 2's health and attacks, the shot released at 0.667 of its clip, no attack voice; " + msg); }
+  {   // IA1: AI type 58 Imperial Archer: Archer 1's entry (the longbow shot at its release, class, health, no attack voice) at the Imperial Soldiers' size; every clip it names, the Arrow and BowString joints
+    int ik = enemyTypeIndex("imperial_archer"), a1 = enemyTypeIndex("archer1"), iy = enemyTypeIndex("imperial_yari"); bool ok = ik >= 0 && a1 >= 0 && iy >= 0, inMix = false, arrow = false, str = false; std::set<std::string> names;
+    for (auto& [id, w] : zcfg().assorted) inMix = inMix || id == "imperial_archer";
+    if (ok) { const EnemyType& t = enemyType(ik), &k = enemyType(a1); ok = t.hp == k.hp && t.attackClips == k.attackClips && t.deathClips == k.deathClips && t.sndAttack.empty() && t.model == "chinese_imperial_archer" && !inMix
+        && t.attackSpecs.size() == k.attackSpecs.size() && t.attackSpecs[0].shoot && std::fabs(t.attackSpecs[0].swing - k.attackSpecs[0].swing) < 1e-4f && std::fabs(t.height - enemyType(iy).height) < 1e-4f;
+      std::ifstream f(contentDir() / "characters" / (t.model + ".glb"), std::ios::binary); std::string g(20, 0); f.read(g.data(), 20); uint32_t nn = 0;
+      if (f.gcount() == 20) { std::memcpy(&nn, g.data() + 12, 4); std::string js(nn, 0); f.read(js.data(), nn); json J; try { J = json::parse(js); } catch (...) {} for (auto& x : J.value("animations", json::array())) names.insert(x.value("name", std::string()));
+        for (auto& n : J.value("nodes", json::array())) { const std::string nm = n.value("name", std::string()); arrow = arrow || nm == "mixamorig:Arrow"; str = str || nm == "mixamorig:BowString"; } }
+      std::vector<std::string> need = t.walkClips; need.push_back(t.runClip); for (auto* v : {&t.idleClips, &t.attackClips, &t.damageClips, &t.deathClips}) need.insert(need.end(), v->begin(), v->end());
+      for (auto& c : need) ok = ok && names.count(c); ok = ok && arrow && str; }
+    chk(ok && (int)AiType::ImperialArcher == 58 && kAiTypeCount > 58 && !Game::soldierBrain(AiType::ImperialArcher) && std::string(aiTypeName(AiType::ImperialArcher)) == "Imperial Archer", "Imperial Archer (IA1): AI type 58, Archer 1's health, shot and deaths at the Imperial Soldiers' size, not in Assorted, every clip it names in its GLB (" + std::to_string(names.size()) + " clips), Arrow and BowString joints"); }
   {   // GR1: the fire curve's overlapping shots add, each x its weight; the rod is the furthest back among them; past the end a shot is off the curve
     WeaponDef d; d.fireCurveFps = 10; d.fireCurve = {{}, {}, {}}; d.fireCurve[1][6] = 2; d.fireCurve[1][9] = 0.08f;   // muzzle up 2 deg and the rod back at 0.1 s
     WeaponState w; w.curveFolded[0] = w.curveFolded[1] = false; w.curveAge[0] = 0.1f; w.curveGain[0] = 1; w.curveAge[1] = 0.05f; w.curveGain[1] = 0.5f;
