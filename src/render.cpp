@@ -783,6 +783,8 @@ vec3 giAmbient(vec3 w, vec3 N, float sv, vec3 analytic){
   return mix(max(gi + analytic*(1.0 - cov), analytic), analytic, k);   // probe light only adds (as in shade())
 }
 float gSpecK = 1.0;   // GG1: the caller's specular scale (the terrain's dry ground: content/settings/ground_gloss.json drySpecular)
+uniform float uCutLampRough;   // GL1 (perf switch cutlamp): roughness floor for local lights on alpha-tested model foliage (0: off)
+float gCutLamp = 0.0;          // GL1: kModelFS sets 1 on cut-out materials before shade()
 uniform vec2 uSpecAA;   // M3 (stream M): geometric specular AA, Tokuyoshi & Kaplanyan 2021: x screen-space variance, y the clamp; x = 0 off
 float specAA(vec3 N, float rough){   // widens alpha where the normal changes fast across a pixel (curved edges, fine bumps)
 #ifdef NMK_FS
@@ -904,7 +906,10 @@ vec3 shade(vec3 w, vec3 N, vec3 alb, float rough, float metal, float ao){
     float so = clamp(pow(NdV + ao, exp2(-16.0*rough - 1.0)) - 1.0 + ao, 0.0, 1.0);   // specular occlusion (Lagarde 2014): once, not ao twice
     r = direct*aoD + irr*alb*kd*aoMB + envSpec*so;
   } else r = direct*aoD + (irr*alb*kd + envSpec*mix(1.0, ao, 0.7)) * ao;
-  if (uLightCount > 0) { vec3 ld, ls; localLights(w, N, Ng, V, rough, F0, ld, ls); r += (kd*alb/PI*ld + ls)*aoD; }
+  // GL1: a lamp on needles / leaves drawn as models (firs, bushes, ivy) takes a broad lobe. The headlamp sits at the eye (L ~ V),
+  // so every needle texel facing the camera lit the GGX peak (rough 0.04: D ~ 800, ~250x the diffuse): the 'glitter' crowns.
+  // A cut-out texel stands for many needles at odd angles, so its pixel-scale lobe is wide; 0.6 keeps a sheen (peak ~ diffuse).
+  if (uLightCount > 0) { vec3 ld, ls; localLights(w, N, Ng, V, max(rough, gCutLamp*uCutLampRough), F0, ld, ls); r += (kd*alb/PI*ld + ls)*aoD; }
   gInd = irr*alb*kd*ao;
   return (any(isnan(r)) || any(isinf(r))) ? vec3(0.0) : r;   // never write a non-finite HDR value
 }
@@ -2415,6 +2420,7 @@ void main(){
       if (k > 1e-24) { k = inversesqrt(k); vec3 n = Tc*k*t.x + Bc*k*t.y + N*max(t.z, 0.05); if (dot(n, n) > 1e-12) N = normalize(n); }
     }
   }
+  gCutLamp = uCutout == 1 ? 1.0 : 0.0;   // GL1: cut-out foliage, broad lobe under lamps
   vec3 c = shade(vW, N, base.rgb, clamp(rough, 0.04, 1.0), clamp(metal, 0.0, 1.0), mix(1.0, ao, 0.85));
   if (uFolTrans > 0.0) {   // VO L4 (Barre-Brisebois & Bouchard 2011): light through the leaf from behind, peaked toward the sun, plus a
     // diffuse share through the lit face's back; shadowed by what shades the leaf's sun side
@@ -5658,6 +5664,7 @@ void Renderer::setLighting(GLuint p, const RenderView& v) {
   glUniform1i(U(p, "uW2"), perf.w2Sky && q.lightNew && !q.legacy && !thumbMode ? 1 : 0); glUniform1f(U(p, "uFlash"), thumbMode ? 0.0f : wx.der.flash);   // W2
   glUniform1i(U(p, "uDbgView"), dbgView);   // CP0
   { vec2 sa(0.25f, 0.18f); if (const char* e = std::getenv("NMK_SPECAA")) std::sscanf(e, "%f,%f", &sa.x, &sa.y); glUniform2f(U(p, "uSpecAA"), q.legacy || !perf.specAA ? 0.0f : sa.x, sa.y); }   // M3: specaa (--rq-off specaa); NMK_SPECAA="variance,clamp"
+  glUniform1f(U(p, "uCutLampRough"), perf.cutLamp ? 0.6f : 0.0f);   // GL1: cutlamp (--rq-off cutlamp)
   { float hd = 1.0f; if (const char* e = std::getenv("NMK_HEX")) hd = (float)std::atof(e); glUniform1f(U(p, "uHBlend"), q.legacy || !perf.hblend || q.matLayer == 0 ? 0.0f : (std::getenv("NMK_HBLEND") ? (float)std::atof(std::getenv("NMK_HBLEND")) : 1.5f));   // M2: height blending (--rq-off hblend; off at Low); NMK_HBLEND = strength
   {   // UL1 material knobs (q.tex*, q.hexFade, q.hblendFade, q.pom*, q.decalRange); NMK_TEX_NEAR="a,b" still overrides
     vec2 tn = q.texNear; if (const char* e = std::getenv("NMK_TEX_NEAR")) std::sscanf(e, "%f,%f", &tn.x, &tn.y);

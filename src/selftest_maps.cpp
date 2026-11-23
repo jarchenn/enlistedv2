@@ -43,7 +43,7 @@ std::vector<int> mapTemplates(App& app) {
     if (app.templates[k].raw.contains("map") && (!only || !*only || ("," + std::string(only) + ",").find("," + app.templates[k].id + ",") != std::string::npos)) v.push_back(k);   // a comma list too (one launch over several maps)
   return v;
 }
-struct View { std::string name; vec3 pos; float yaw, pitch; bool explore = false; bool gate = true; float hour = -1.0f; bool groundEye = false, neutral = false; int dbg = -1; bool ggOff = false; int weather = -1; float cover = -1.0f; int light = -1; float walk = 0.0f; float sunYaw = -999.0f; };   // BS1 sunYaw: the heading in degrees from down-sun (0: the sun straight behind), set from the sun at the view   // VO walk: seconds walked forward at 1.4 m/s after the measurement, a frame every 0.5 s (motion check)   // VO: light 1 New / 0 Classic (Settings > Lighting)   // SKY1: weather 0 clear / 1 cloudy, cover forced   // GR3: hour >= 0 sets the time of day for that view; groundEye: pos.y is the eye height above the terrain; neutral: the map's look tint / saturation / ambient off (tracing a colour cast)   // gate: gameplay view held to the frame target
+struct View { std::string name; vec3 pos; float yaw, pitch; bool explore = false; bool gate = true; float hour = -1.0f; bool groundEye = false, neutral = false; int dbg = -1; bool ggOff = false; int weather = -1; float cover = -1.0f; int light = -1; float walk = 0.0f; float sunYaw = -999.0f; int headlamp = -1; };   // GL1 headlamp: 1 / 0 the player's headlamp (FX1) on / off for the view, -1 untouched   // BS1 sunYaw: the heading in degrees from down-sun (0: the sun straight behind), set from the sun at the view   // VO walk: seconds walked forward at 1.4 m/s after the measurement, a frame every 0.5 s (motion check)   // VO: light 1 New / 0 Classic (Settings > Lighting)   // SKY1: weather 0 clear / 1 cloudy, cover forced   // GR3: hour >= 0 sets the time of day for that view; groundEye: pos.y is the eye height above the terrain; neutral: the map's look tint / saturation / ambient off (tracing a colour cast)   // gate: gameplay view held to the frame target
 struct Perf { std::string name; bool gate = true; int frames = 0; double ms = 0, worst = 0, draws = 0, tris = 0; int preset = 1; bool night = false; double gpu = 0, pass[GP_Count] = {}; int abN[2] = {}; double abMs[2] = {}, abPass[2][GP_Count] = {}, abProbeCpu[2] = {}, abProbes[2] = {}, abCpu[2] = {};
               double x[10] = {}, abX[2][10] = {}; };   // R2: the frame counters below (kXName), plain run and A/B sides   // ab: [0] PF2 renderer, [1] the A/B baseline (NMK_PERF_AB)   // night: L2 Night at Medium (reported only)   // preset: GfxPreset (V2: gameplay views also at Low / High, reported only)
 
@@ -195,7 +195,8 @@ void templateViews(const TemplateInfo& t) {
     json xj; try { xj = json::parse(readTextFile(xf)); } catch (...) {}
     if (xj.is_object()) for (auto& v : xj.value(t.id, json::array())) {
       sViews.push_back({v.value("name", std::string("view")), jvec3(jkey(v, "pos"), vec3(0)), v.value("yaw", 0.0f), v.value("pitch", 0.0f), v.value("explore", false), true, v.value("hour", -1.0f), v.value("groundEye", false), v.value("neutral", false), v.value("dbg", -1), v.value("ggOff", false), v.value("weather", -1), v.value("cover", -1.0f), v.value("light", -1), v.value("walk", 0.0f)});   // GG1: dbg = terrain debug view
-      sViews.back().sunYaw = v.value("sunYaw", -999.0f); }   // BS1
+      sViews.back().sunYaw = v.value("sunYaw", -999.0f);   // BS1
+      if (v.contains("headlamp")) sViews.back().headlamp = v.value("headlamp", false) ? 1 : 0; }   // GL1
   }
 }
 }  // namespace
@@ -500,6 +501,7 @@ void SelfTest::mapsUpdate(App& app, float dt) {
         else if (sWxTarget != -2) { app.R.wx.target = sWxTarget; app.R.wx.userSet = sWxUser; app.R.wx.snap(); sWxTarget = -2; }
       }
       if (v.cover >= 0.0f) app.R.cloudCover = v.cover;
+      if (v.headlamp >= 0) app.flashlight = v.headlamp == 1;   // GL1 (flashlight.cpp lights it in self-tests)
       if (v.light >= 0) { settings().s.lightNew = v.light != 0; app.R.q.lightNew = v.light != 0; app.R.resetTemporal(); }   // VO: New beside Classic in one run
       if (v.explore) {
         app.doc.start = {true, v.pos, v.yaw};
