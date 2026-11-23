@@ -20,7 +20,7 @@ def load(p):
 def view(J, BIN, k):
     v = J['bufferViews'][k]; o = v.get('byteOffset', 0); return BIN[o:o + v['byteLength']]
 def image_bytes(J, BIN, ti): return view(J, BIN, J['images'][J['textures'][ti]['source']]['bufferView'])
-NO_METAL = '--no-metal' in sys.argv; sys.argv = [a for a in sys.argv if a != '--no-metal']   # BC5: the user: the original, but her skin not metallic
+NO_METAL = '--no-metal' in sys.argv; BC = '--bc' in sys.argv; sys.argv = [a for a in sys.argv if a not in ('--no-metal', '--bc')]   # --bc (LT1): leave the game's block compression on (no nmkNoBC)   # BC5: the user: the original, but her skin not metallic
 G, GB = load(sys.argv[1]); R, RB = load(sys.argv[2]); OUT = sys.argv[3]
 rmat = {m['name']: m for m in R['materials']}
 NB = bytearray(); views = []; remap = {}
@@ -43,7 +43,13 @@ def tex(data, key, mime='image/png'):
 def png(im): b = io.BytesIO(); im.save(b, 'PNG'); return b.getvalue()
 WHITE = png(Image.new('RGB', (4, 4), (255, 255, 255)))
 for m in G['materials']:
-    name = re.sub(r'\.\d+$', '', m['name']); r = rmat[name]; rp = r.get('pbrMetallicRoughness', {}); pb = m.setdefault('pbrMetallicRoughness', {})
+    name = re.sub(r'\.\d+$', '', m['name'])
+    if name not in rmat:   # LT1: a material the reference does not have (a grafted part's): its own maps carried as they are
+        pb = m.get('pbrMetallicRoughness', {})
+        for slot in [pb.get('baseColorTexture'), pb.get('metallicRoughnessTexture'), m.get('normalTexture')]:
+            if slot: slot['index'] = tex(image_bytes(G, GB, slot['index']), ('G', slot['index']), G['images'][G['textures'][slot['index']]['source']].get('mimeType', 'image/png'))['index']
+        print('MAT', name, 'kept (not in the reference)'); continue
+    r = rmat[name]; rp = r.get('pbrMetallicRoughness', {}); pb = m.setdefault('pbrMetallicRoughness', {})
     if 'baseColorTexture' in rp:
         ti = rp['baseColorTexture']['index']; data = image_bytes(R, RB, ti); ref = Image.open(io.BytesIO(data))
         if ref.mode == 'P': ref = ref.convert('RGBA'); b2 = io.BytesIO(); ref.save(b2, 'PNG'); data = b2.getvalue()   # a palette with tRNS (the lashes): plain RGBA
@@ -64,14 +70,15 @@ for m in G['materials']:
         m['normalTexture'] = tex(nd, ('R', r['normalTexture']['index'], 'baseColorTexture' in rp and flipped))
     pb['metallicFactor'] = 0.0 if NO_METAL else rp.get('metallicFactor', 1.0); pb['roughnessFactor'] = rp.get('roughnessFactor', 1.0)
     pb.pop('metallicRoughnessTexture', None)
-    if pb['metallicFactor'] > 0.05 or pb['roughnessFactor'] < 0.75: pb['metallicRoughnessTexture'] = tex(WHITE, 'white')
+    if 'metallicRoughnessTexture' in rp and not NO_METAL: pb['metallicRoughnessTexture'] = tex(image_bytes(R, RB, rp['metallicRoughnessTexture']['index']), ('R', rp['metallicRoughnessTexture']['index'], 'mr'))   # LT1: the reference's own map (the chainmail's shine)
+    elif pb['metallicFactor'] > 0.05 or pb['roughnessFactor'] < 0.75: pb['metallicRoughnessTexture'] = tex(WHITE, 'white')
     if r.get('alphaMode', 'OPAQUE') != 'OPAQUE' and alpha: m['alphaMode'] = 'MASK'; m['alphaCutoff'] = 0.5
     else: m.pop('alphaMode', None); m.pop('alphaCutoff', None)
     m['doubleSided'] = r.get('doubleSided', m.get('doubleSided', False))
     print('MAT', name, 'v-flipped' if 'baseColorTexture' in rp and flipped else '', 'base', ref.size if 'baseColorTexture' in rp else None, 'nrm', 'normalTexture' in m, 'metal %.2f rough %.2f' % (pb['metallicFactor'], pb['roughnessFactor']),
           'mr' if 'metallicRoughnessTexture' in pb else '', m.get('alphaMode', 'OPAQUE'), 'dropped: ' + ','.join(r.get('extensions', {})) if r.get('extensions') else '')
 G['images'], G['textures'], G['bufferViews'] = images, textures, views; G.pop('samplers', None)
-G['buffers'] = [{'byteLength': len(NB)}]; G['asset'].setdefault('extras', {}).update(nmkNormals=True, nmkCutout=True, nmkNoBC=True)
+G['buffers'] = [{'byteLength': len(NB)}]; G['asset'].setdefault('extras', {}).update(nmkNormals=True, nmkCutout=True, **({} if BC else {'nmkNoBC': True}))
 while len(NB) % 4: NB.append(0)
 G['buffers'][0]['byteLength'] = len(NB); js = json.dumps(G, separators=(',', ':')).encode()
 while len(js) % 4: js += b' '
