@@ -273,6 +273,7 @@ void Game::setupSlotSoldier(const RosterSlot& rs, AiType ait, int variant, int& 
       s.eScale = s.eBody = std::clamp(kj.value("scale", 1.0f), 0.5f, 3.0f); s.eLean = 0; s.standFire = kj.value("lmg_standing", false); s.meleeKeep = std::clamp(kj.value("melee_keep_m", 0.0f), 0.0f, 40.0f);
       if (ait == AiType::OperatorF) s.eScale = s.eBody = std::clamp(combat.value("operator_f", json::object()).value("scale", 1.5f), 0.5f, 3.0f);   // OPF1: its own size (what a kit's "scale" drives)
     } else { s.standFire = false; s.meleeKeep = 0; }
+    s.etypeMount = -1;   // EK4: a new match's slot: its own type, no mount to restore
     s.etype = !s.zombie ? 0 : etypeOverride >= 0 ? etypeOverride : ait == AiType::ZombiesHeavies ? enemyTypePick((uint32_t)rs.id)   // EN1: the mix by weight, per slot
             : ait == AiType::Brutes ? std::max(0, enemyTypeIndex("brute")) : ait == AiType::Spiders ? std::max(0, enemyTypeIndex("stalker"))
             : ait == AiType::Creatures ? std::max(0, enemyTypeIndex("creature"))
@@ -564,6 +565,8 @@ const std::vector<vec3>& Game::spawnPool() {
 // EGG1: a soldier placed alive at feet facing yaw (trySpawn's success; the Creative spawn eggs): agent, class, loadout, a fresh brain
 void Game::placeSoldier(int slot, vec3 feet, float yaw) {
   Soldier& s = sold[slot];
+  if (s.zombie && s.etypeMount >= 0) { s.etype = s.etypeMount; aiZombieAssign(*this, s); if (s.ciReady) s.ci.destroy(); s.ciReady = false; }   // EK4: a knight whose mount fell respawns mounted (the full horse_hp below)
+  s.etypeMount = -1;
   s.feet = feet; s.yaw = yaw; s.pitch = 0; s.alive = true; s.flat = false; s.hp = s.zombie ? enemyType(s.etype).hp : combat.value("health", 100.0f); s.horseHp = s.zombie ? enemyType(s.etype).horseHp : 0.0f; s.mountDeath = -1; s.hitHorse = false; s.killer = -1; s.staggerUntil = 0; s.posture = Physics::STAND;
   s.human = match.slots[slot].human || match.slots[slot].pendingPeer >= 0; s.peer = match.slots[slot].pendingPeer >= 0 ? match.slots[slot].pendingPeer : match.slots[slot].peer;
   ++s.lifeId;

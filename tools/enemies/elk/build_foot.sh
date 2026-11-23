@@ -2,7 +2,7 @@
 # EK: the elk knight on foot (Knight 10 + the Spear Knight's clips, the halberd, the steel shield, the wings, no cloak)
 set -e; cd /e/nmk/stag; G=/e/nmk/wt-glit/content/characters; T=/e/nmk/wt-pf3/tools/enemies
 python -I clip_copy.py $G/knight_spear_ks1.glb $G/knight_10.glb foot_a.glb "spear thrust" "spear thrust (2)" "spear thrust (3)" "spear thrust (4)" "spear poke" >/dev/null
-LINE_GLB=$G/knight_spear_ks1.glb LINE_MAT=Material.001 LENGTH=2.2 SHIFT=0.4 ROLL=270 FLIP_SHIELD=1 python -I weapon_swap.py foot_a.glb /e/nmk/incoming_halberd/renaissance_halberd.glb foot_b.glb KNB_RightHand_sword_0 KNB_LeftForeArm_shield_0 KNB_LeftForeArm_shield_0 | grep -E "slid|wrote"
+LINE_GLB=$G/knight_spear_ks1.glb LINE_MAT=Material.001 LENGTH=2.2 SHIFT=0.4 ROLL=270 python -I weapon_swap.py foot_a.glb /e/nmk/incoming_halberd/renaissance_halberd.glb foot_b.glb KNB_RightHand_sword_0 KNB_LeftForeArm_shield_0 KNB_LeftForeArm_shield_0 | grep -E "slid|wrote"
 python -I shield_recolor.py foot_b.glb foot_b2.glb KNB_LeftForeArm_shield_0 elk_armoured.glb ha_steel >/dev/null
 python -I - <<'PY'
 import json,struct

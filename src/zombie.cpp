@@ -599,8 +599,6 @@ void aiZombieStep(Game& G, Soldier& s, float dt) {
   m.zSpeed = L || (best && zLenXZ(best->feet - s.feet) < e.runWithin) ? e.run : e.walk;   // a pack follower keeps the pack's pace
   if (s.npc && !best && !L) npcStep(G, *A, s, m, e);   // NPC1: no one to fight: flee or wander
   if (G.t < s.staggerUntil) { m.speed = SPD_STOP; b.why = "zombie: staggered"; }
-  if (s.lookUntil > G.t + 30.0) s.lookUntil = 0;   // a new match restarts the clock
-  if (G.t < s.lookUntil && s.meleeWind < 0) { m.speed = SPD_STOP; b.why = "zombie: looking round after the blow"; }   // EK: after_attack: it stands while that clip plays
   if (e.warmup > 0) {   // KG3: from a standstill it walks warmup_s before the run (reset while it stands or barely moves)
     if (m.warmT < 0 || m.speed == SPD_STOP || s.speed < 0.3f * e.walk) m.warmT = G.t;
     if (G.t - m.warmT < e.warmup) m.zSpeed = std::min(m.zSpeed, e.walk);
@@ -756,8 +754,6 @@ void aiZombieStep(Game& G, Soldier& s, float dt) {
     if (s.meleeWind >= wu + r.post) {
       int k = attackClip(*G.models[s.model], clipsOf(s), s.meleeClip); float rest = k >= 0 ? (G.models[s.model]->clips[k].dur - G.models[s.model]->clips[k].swing) / e.attackRate : 0.0f;
       s.meleeWind = -1; s.meleeReady = G.t + std::max(e.cooldown, rest);
-      if (!e.afterAttackClip.empty()) { int lk = findClip(*G.models[s.model], e.afterAttackClip.c_str());   // EK: then the look round: it stands, no strike till it ends
-        if (lk >= 0) { s.lookUntil = G.t + rest + G.models[s.model]->clips[lk].dur; s.meleeReady = std::max(s.meleeReady, s.lookUntil); } }
     }
   } else if (s.meleeWind >= 0) {
     float wu = windupOf(G, s);
@@ -862,10 +858,11 @@ void aiZombieDead(Game& G, Soldier& s) {
   vec3 at = vec3(s.world * m.rootFix * vec4(e.footAt, 1)); Physics::Hit h;
   at = Physics::castRayEx(at + vec3(0, 1.5f, 0), vec3(0, -1, 0), 6.0f, h) ? h.pos : vec3(at.x, s.feet.y, at.z);
   if (s.ciReady) s.ci.destroy(); s.ciReady = false;
+  if (s.etypeMount < 0) s.etypeMount = s.etype;   // EK4: the next life starts mounted again (Game::placeSoldier)
   s.etype = ft; s.mountDeath = -1; aiZombieAssign(G, s);
   const EnemyType& f = enemyType(ft);
   s.feet = at; s.alive = true; s.flat = false; s.hp = e.horseHp > 0 && s.riderHpKeep > 0 ? std::min(f.hp, s.riderHpKeep) : f.hp; s.horseHp = 0; s.killer = -1;   // HK3: the rider's health left s.staggerUntil = 0; s.posture = Physics::STAND; s.lastHow.clear();
-  s.meleeWind = -1; s.meleeReady = G.t + 0.5; s.lookUntil = 0; s.poseFrom = -1; ++s.lifeId;
+  s.meleeWind = -1; s.meleeReady = G.t + 0.5; s.poseFrom = -1; ++s.lifeId;
   if (s.agent >= 0) Physics::destroyAgent(s.agent);
   s.agent = f.capsuleH > 0 ? Physics::createAgent(at, f.capsuleH, f.capsuleR) : Physics::createAgent(at);
   s.br.aimYaw = s.yaw;
@@ -886,6 +883,7 @@ void aiZombiePose(Game& G, Soldier& s, float dt) {
   auto pickAt = [&](const std::vector<std::string>& v, int k) { return clip(v[(size_t)std::max(0, k) % v.size()].c_str(), v[0].c_str()); };
   auto pick = [&](const std::vector<std::string>& v) { return pickAt(v, s.slot); };   // per zombie: one of the type's walk / idle clips
   int walk = pick(ce.walkClips), run = findClip(m, ce.runClip.c_str()), idle = pick(ce.idleClips);
+  const int lookK = e.afterAttackClip.empty() ? -1 : findClip(m, e.afterAttackClip.c_str()); const bool moving = s.speed > std::max(0.3f, 0.05f * s.eScale);   // EK: after_attack
   if (s.npc && s.hp < e.npcFightHp * e.hp) { int wi = findClip(m, ce.walkInjured.c_str()), ri = findClip(m, ce.runInjured.c_str()); if (wi >= 0) walk = wi; if (ri >= 0) run = ri; }   // NPC3: hurt below half: limps, runs hurt
   auto gs = [&](int k, float def) {   // a bigger body takes longer strides
     auto o = k >= 0 ? ce.groundMps.find(m.clips[k].name) : ce.groundMps.end();
@@ -909,8 +907,8 @@ void aiZombiePose(Game& G, Soldier& s, float dt) {
   if (!s.alive) A.play(K_DEATH, hd >= 0 ? hd : pickAt(ce.deathClips, s.slot + s.lifeId), -1, 0, 1, false);
   else if (climbing) { int cc = ce.climbClip.empty() ? -1 : findClip(m, ce.climbClip); if (cc >= 0) A.play(K_CLIMB, cc, -1, 0, m.clips[cc].dur / std::max(0.3f, tm->trav.dur), false); else A.play(K_CLIMB, walk, -1, 0, 1.4f, true); }   // holds its end pose (no ragdoll in this game)
   else if (A.strike != s.meleeCount) { A.strike = s.meleeCount; A.play(K_ATTACK, attackClip(m, ce, s.meleeClip), -1, 0, e.attackRate, false, true); }
-  else if (A.key == K_ATTACK && playing(1e9f)) {}   // the swing plays out
-  else if (A.key == K_ATTACK && !e.afterAttackClip.empty() && A.look != A.strike && findClip(m, e.afterAttackClip.c_str()) >= 0) { A.look = A.strike; A.play(K_ATTACK, findClip(m, e.afterAttackClip.c_str()), -1, 0, 1, false, true); }   // EK: the swing done, the look round (as the host's lookUntil; clients from the same strike count)
+  else if (A.key == K_ATTACK && playing(1e9f) && !(lookK >= 0 && A.a == lookK && moving)) {}   // the swing plays out (EK: the look round gives way to the mount's stride)
+  else if (A.key == K_ATTACK && lookK >= 0 && A.look != A.strike && !moving) { A.look = A.strike; A.play(K_ATTACK, lookK, -1, 0, 1, false, true); }   // EK: the swing done and the mount standing: the look round (clients alike, from the strike count)
   else if (hurt) A.play(K_DAMAGE, pickAt(ce.damageClips, s.slot + (int)s.hp), -1, 0, 1, false, true);   // EN2: a hit reaction of the list
   else if (A.key == K_DAMAGE && playing(c.flinch)) {}
   else if (s.speed > std::max(0.3f, 0.05f * s.eScale) * (A.key == K_LOCO ? 0.7f : 1.3f) && walk >= 0) {   // AN1 step 7: hysteresis (no idle / walk flicker at the threshold); a giant shuffling slower than that stands (its stride would freeze mid-step)
