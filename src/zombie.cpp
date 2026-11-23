@@ -1068,6 +1068,20 @@ int ar1SelfCheck() {
     const int li = enemyTypeIndex("crusader2"); bool ok = (int)AiType::Crusader2 == 50 && kAiTypeCount > 50 && std::string(aiTypeName(AiType::Crusader2)) == "Crusader 2" && !Game::soldierBrain(AiType::Crusader2);
     if (li >= 0) { const EnemyType& t = enemyType(li); ok = ok && t.model == "letholdus" && !t.attackSpecs.empty(); for (auto& c : t.damageClips) ok = ok && c.find("block") == std::string::npos; }
     chk(ok, std::string("Crusader 2 (LT1): AI type 50, melee brain; ") + (li >= 0 ? "local type crusader2 (Letholdus): sword attacks, no shield block" : "model absent (local-only): Knight 1")); }
+  {   // PK1: the Paladin: AI type 51, Knight 4's two-handed clips on the platemail's own rig; every clip it names is in its GLB, with
+    // the Weapon joint its strikes ride on, and the sword skinned to it
+    int pk = enemyTypeIndex("paladin"), k4 = enemyTypeIndex("knight4"); bool ok = pk >= 0 && k4 >= 0 && (int)AiType::Paladin == 51 && kAiTypeCount > 51
+      && std::string(aiTypeName(AiType::Paladin)) == "Paladin" && enemyType(pk).model == "paladin" && enemyType(pk).attackClips == enemyType(k4).attackClips && enemyType(pk).weight == 0;
+    std::string msg = "model absent: data only";
+    std::ifstream f(contentDir() / "characters" / "paladin.glb", std::ios::binary); std::string g((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+    if (ok && g.size() > 28) { uint32_t nn = 0; std::memcpy(&nn, g.data() + 12, 4); json J; try { J = json::parse(g.substr(20, nn)); } catch (...) {}
+      std::set<std::string> clips, nodes; for (auto& an : J.value("animations", json::array())) clips.insert(an.value("name", std::string()));
+      for (auto& nd : J.value("nodes", json::array())) nodes.insert(nd.value("name", std::string()));
+      const EnemyType& T = enemyType(pk); std::vector<std::string> need = T.walkClips; need.push_back(T.runClip);
+      for (auto* v : {&T.idleClips, &T.attackClips, &T.damageClips, &T.deathClips}) need.insert(need.end(), v->begin(), v->end());
+      for (auto& c : need) ok = ok && clips.count(c);
+      ok = ok && nodes.count("mixamorig:Weapon") && nodes.count("sword"); msg = std::to_string(clips.size()) + " clips, the Weapon joint and the sword"; }
+    chk(ok, "Paladin (PK1): AI type 51, Knight 4's two-handed clips and attacks, not in Assorted; " + msg); }
   {   // BC1: AI type 46 Boss; a local boss_choi type is invulnerable
     const int bi = enemyTypeIndex("boss_choi");
     chk((int)AiType::Boss == 46 && kAiTypeCount > 46 && std::string(aiTypeName(AiType::Boss)) == "Boss" && !Game::soldierBrain(AiType::Boss) && (bi < 0 || enemyType(bi).invuln),
