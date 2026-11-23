@@ -1124,10 +1124,12 @@ int ar1SelfCheck() {
     int files = 0; for (const char* f : {"snort_1", "snort_2", "snort_3", "snort_4", "snort_5", "neigh", "death", "step_1", "step_2", "step_3", "step_4", "step_5", "step_6"}) files += fs::exists(contentDir() / "audio" / "custom" / "horse" / (std::string(f) + ".mp3"));
     int hk = enemyTypeIndex("knight10m");
     chk(files == 13 && hk >= 0 && enemyType(hk).sndMount == "horse", "horse sounds (HS1): " + std::to_string(files) + " of 13 files; the Mounted Knight's horse uses them"); }
-  {   // KS2: the knights' attack sound: one of five grunts at random (custom/knight/attack_N.mp3, event knight_attack), as the weapon comes down
+  {   // KS2: the knights' attack sound: one of two grunts at random (SND-T, the user: the three spoken ones, among them "come here scum", removed; the archers no longer grunt)
+    // custom/knight/attack_N.mp3, event knight_attack, as the weapon comes down
     int nk = 0, ok = 0, files = 0; for (int n = 1; n <= 5; ++n) files += fs::exists(contentDir() / "audio" / "custom" / "knight" / ("attack_" + std::to_string(n) + ".mp3"));
     for (auto& t : enemyTypes()) if (t.id.rfind("knight", 0) == 0) { ++nk; ok += t.sndAttack == "knight_attack" && t.attackAtBlow; }
-    chk(files == 5 && nk >= 10 && ok == nk, "knight attack sound (KS2): " + std::to_string(ok) + " of " + std::to_string(nk) + " knight types play knight_attack at the blow; " + std::to_string(files) + " of 5 variants"); }
+    bool quiet = true; for (const char* id : {"archer1", "archer2"}) { int k = enemyTypeIndex(id); quiet = quiet && k >= 0 && enemyType(k).sndAttack.empty(); }
+    chk(files == 2 && quiet && nk >= 10 && ok == nk, "knight attack sound (KS2): " + std::to_string(ok) + " of " + std::to_string(nk) + " knight types play knight_attack at the blow; " + std::to_string(files) + " variants (two plain grunts); the archers have no attack voice"); }
   {   // KS: the Spear Knight: AI type 42, three builds picked at random, stab clips only, 1.3x Knight 7's reach; each build's GLB names every clip
     int sk = enemyTypeIndex("knight_spear"), k7 = enemyTypeIndex("knight7"); bool ok = sk >= 0 && k7 >= 0, stabs = ok, files = ok; std::set<int> picks;
     if (ok) { const EnemyType& t = enemyType(sk);
