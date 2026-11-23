@@ -5,7 +5,8 @@
 #   the material has a metallicRoughness texture, so a 4x4 white one is attached where the factors leave that range
 # - alpha: a reference material that blends and whose base image carries alpha (hair cards, lashes) becomes MASK 0.5;
 #   the rest OPAQUE (the body's BLEND is an exporter default: its opacity maps are solid white)
-# - asset.extras.nmkNormals / nmkCutout: the game then loads the normal maps and alpha-tests MASK materials (character.cpp)
+# - asset.extras.nmkNormals / nmkCutout / nmkNoBC: the game then loads the normal maps, alpha-tests MASK materials and keeps
+#   the textures uncompressed (character.cpp)
 # Not carried (the character shader has no such terms): KHR_materials_clearcoat (the eyes), blended (sorted) transparency.
 # Each base image is checked against the converted one (mean difference, after resizing) so a UV flip cannot slip through.
 #   python -I tools/enemies/glb_restore_textures.py <converted.glb> <reference.glb> <out.glb>
@@ -68,7 +69,7 @@ for m in G['materials']:
     print('MAT', name, 'v-flipped' if 'baseColorTexture' in rp and flipped else '', 'base', ref.size if 'baseColorTexture' in rp else None, 'nrm', 'normalTexture' in m, 'metal %.2f rough %.2f' % (pb['metallicFactor'], pb['roughnessFactor']),
           'mr' if 'metallicRoughnessTexture' in pb else '', m.get('alphaMode', 'OPAQUE'), 'dropped: ' + ','.join(r.get('extensions', {})) if r.get('extensions') else '')
 G['images'], G['textures'], G['bufferViews'] = images, textures, views; G.pop('samplers', None)
-G['buffers'] = [{'byteLength': len(NB)}]; G['asset'].setdefault('extras', {}).update(nmkNormals=True, nmkCutout=True)
+G['buffers'] = [{'byteLength': len(NB)}]; G['asset'].setdefault('extras', {}).update(nmkNormals=True, nmkCutout=True, nmkNoBC=True)
 while len(NB) % 4: NB.append(0)
 G['buffers'][0]['byteLength'] = len(NB); js = json.dumps(G, separators=(',', ':')).encode()
 while len(js) % 4: js += b' '

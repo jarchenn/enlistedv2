@@ -182,13 +182,14 @@ bool CharModel::load(const fs::path& path, std::string& err, float height, bool 
   bmin = vec3(1e9f); bmax = vec3(-1e9f);
   // materials -> textures
   std::map<int, GLuint> texCache;
+  const bool noBC = J.value("asset", json::object()).value("extras", json::object()).value("nmkNoBC", false);   // BC4: a file that asks keeps its textures uncompressed (RGBA8 + mips), as its source shows them
   auto tex = [&](int t, bool srgb, int kind = -1) -> GLuint {   // kind: 0 albedo, 1 data, 2 normal (-1: by srgb)
     if (t < 0) return 0;
     if (kind < 0) kind = srgb ? 0 : 1;
     int key = t * 4 + kind;
     auto it = texCache.find(key); if (it != texCache.end()) return it->second;
     int src = J["textures"][t].value("source", -1);
-    return texCache[key] = src >= 0 ? uploadImage(g, src, srgb, !wantNormals, kind, bcBig) : 0;   // FSB1: soldier skins block-compressed
+    return texCache[key] = src >= 0 ? uploadImage(g, src, srgb, !wantNormals && !noBC, kind, bcBig && !noBC) : 0;   // FSB1: soldier skins block-compressed
   };
   if (J.contains("materials")) for (auto& m : J["materials"]) {
     GpuModel::MatTex mt; mt.name = m.value("name", "");
