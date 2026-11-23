@@ -1168,7 +1168,7 @@ int ar1SelfCheck() {
     std::string pd = xb.is_object() ? xb.value("projectileModel", json::object()).value("dir", std::string()) : std::string();
     chk(!pd.empty() && fs::exists(contentDir() / "weapons" / "models" / pd / "mesh.bin"), "the crossbow's bolt mesh (XB7): models/" + pd); }
   { int kn = 0, ar = 0; for (uint32_t sd = 0; sd < 400; ++sd) { const std::string& id = enemyType(enemyTypeAssortedPick(sd)).id; kn += id.rfind("knight", 0) == 0; ar += id.rfind("archer", 0) == 0; }
-    chk(kn + ar == 400 && ar > 40 && ar < 160, "assorted (AK1): 400 slots -> " + std::to_string(kn) + " knights, " + std::to_string(ar) + " archers"); }
+    chk(kn == 400 && ar == 0, "assorted (AK1 / AK2: knights only): 400 slots -> " + std::to_string(kn) + " knights, " + std::to_string(ar) + " archers"); }
   for (float D : {5.0f, 10.0f, 25.0f, 45.0f}) {
     vec3 from(0, 1.45f, 0), aim(0, 1.3f, -D), p = from, v = arrowAim(from, aim, 55.0f) * 55.0f; float best = 1e9f; const float h = 1.0f / 120;
     for (int i = 0; i < 600 && p.z > -D - 2; ++i) { vec3 q = p + v * h; float t = glm::clamp(glm::dot(aim - p, q - p) / std::max(1e-9f, glm::dot(q - p, q - p)), 0.0f, 1.0f); best = std::min(best, glm::length(p + (q - p) * t - aim)); p = q; v.y -= 9.81f * h; }

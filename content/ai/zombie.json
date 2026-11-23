@@ -26,8 +26,8 @@
     "anim_hz_far": 7.5,
     "share_pose_m": 60
   },
-  "assorted_note": "AK1: AI type Assorted Knights: each slot one of these types by weight (archers about a quarter of the mix: 3.33 of 14.33; KS: the Spear Knight one of the knights); a type whose model file is missing (the local-only knight_v2, knight_3, archer_2) is left out. The Mounted Knight is not in the mix",
-  "assorted": [["knight", 1], ["knight2", 1], ["knight3", 1], ["knight4", 1], ["knight5", 1], ["knight6", 1], ["knight7", 1], ["knight8", 1], ["knight9", 1], ["knight10", 1], ["knight_spear", 1], ["archer1", 1.67], ["archer2", 1.67]],
+  "assorted_note": "AK1: AI type Assorted Knights: each slot one of these types by weight (KS: the Spear Knight one of the knights; AK2: knights only, the archers taken out by the user); a type whose model file is missing (the local-only knight_v2, knight_3, archer_2) is left out. The Mounted Knight is not in the mix",
+  "assorted": [["knight", 1], ["knight2", 1], ["knight3", 1], ["knight4", 1], ["knight5", 1], ["knight6", 1], ["knight7", 1], ["knight8", 1], ["knight9", 1], ["knight10", 1], ["knight_spear", 1]],
   "types": [
     {
       "id": "zombie",
@@ -2313,7 +2313,7 @@
       ]
     },
     {
-      "note": "KN9: AI type Knight 9 (33): Knight 5's body with a steel-recoloured Maximilian close helmet over the shaved head and a Polish-Ottoman sabre, the Pro Melee Axe Pack clips mapped as Knight 5 plus the sword-and-shield pack's two deaths (tools/enemies/knight_add_clips.py) (content/characters/knight_9.glb; credits in docs/credits.md). Strike: on the sabre's blade (bone + at)",
+      "note": "KN9: AI type Knight 9 (33): Knight 5's body with a steel-recoloured Maximilian close helmet (KN9b: matched to his armour, half-way in colour and fully in shine: tools/enemies/glb_match_material.py) over the shaved head and a Polish-Ottoman sabre, the Pro Melee Axe Pack clips mapped as Knight 5 plus the sword-and-shield pack's two deaths (tools/enemies/knight_add_clips.py) (content/characters/knight_9.glb; credits in docs/credits.md). Strike: on the sabre's blade (bone + at)",
       "id": "knight9", "class": "knight",
       "hit_fx": "sparks",
       "name": "Knight 9",
