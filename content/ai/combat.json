@@ -242,11 +242,13 @@
  "models": {"Allies": ["allied_body"], "Axis": ["skin_grenadier", "skin_german"]},
  "models_fallback": {"Allies": ["allied_ranger_0"], "Axis": ["axis_grenadier"]},
  "hold_bodies_note": "WSM2: every human soldier body is a skin on the Allied paratrooper's skeleton (tools/bake_gunbody.py --skin: the soldier's own mesh and weights posed onto the Allied joints and proportions), playing the clips of the model named here (allied_body: 83 Mixamo clips, borrowed by joint name at load) with the game's guns in the stored per-gun holds (content/weapons/*.json hold.pose). A missing skin or clip source: the soldier body and the procedural pose.",
- "hold_bodies": {"allied_body": "allied_body", "skin_german": "allied_body", "skin_grenadier": "allied_body", "skin_desert": "allied_body", "skin_marine": "allied_body", "skin_fsb": "allied_body", "skin_robot": "allied_body", "skin_operator": "allied_body", "skin_ss": "allied_body"},
+ "hold_bodies": {"allied_body": "allied_body", "skin_german": "allied_body", "skin_grenadier": "allied_body", "skin_desert": "allied_body", "skin_marine": "allied_body", "skin_fsb": "allied_body", "skin_robot": "allied_body", "skin_operator": "allied_body", "skin_ss": "allied_body", "skin_operator_f1": "allied_body"},
  "operator_models_note": "AI type Operators: soldiers (the same brain, weapons and procedural pose) wearing these bodies, one per AI in turn; a missing file leaves the faction's soldier body (tools/bake_ai_characters.py operators, docs/credits.md)",
  "gunbody_models_note": "WSM2: empty, the bodies with the gun built in (NA1 / GM1 / GM2 bakes, gunbody.cpp bi mode) are no longer used; every human type wears a hold body (hold_bodies). The old files are left in content/characters until the user has seen the result",
  "gunbody_models": {},
- "operator_models": {"Allies": ["skin_operator"], "Axis": ["skin_operator"]},
+ "operator_models": {"Allies": ["skin_operator", "skin_operator_f1"], "Axis": ["skin_operator", "skin_operator_f1"]},
+  "model_scale_note": "OPF1: a body's own draw size by model id (what a kit's \"scale\" drives: body, held gun, hit zones, eye / chest heights, stride; the movement capsule stays the soldier's). skin_operator_f1 is a local-only operator body (git-ignored; absent: every operator wears skin_operator)",
+  "model_scale": {"skin_operator_f1": 1.5},
  "corpses": {
   "max": 12,
   "seconds": 40

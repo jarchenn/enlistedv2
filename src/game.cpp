@@ -320,6 +320,10 @@ void Game::setupSlotSoldier(const RosterSlot& rs, AiType ait, int variant, int& 
     s.kitSparks = s.zombie ? enemyType(s.etype).hitSparks : kitj.value("sparks", false);   // SW1 kit "sparks" / MK2 type "hit_fx": "sparks": hits throw metal sparks, no blood
     if (ait == AiType::Operators || s.kit >= 2) {   // a soldier in the faction's operator body (combat.json operator_models; SW1: the kit's models, either side; missing: the soldier body stays)
       json ol = s.kit >= 2 ? kitj.value("models", json::array()) : combat.value("operator_models", json::object()).value(fac, json::array());
+      if (s.kit < 2) {   // OPF1: an operator body whose file is absent (a local-only one) is left out of the turn: the others wear the bodies that are there
+        json have = json::array(); for (auto& x : ol) if (fs::exists(contentDir() / "characters" / (x.get<std::string>() + ".glb"))) have.push_back(x);
+        if (!have.empty()) ol = have;
+      }
       if (!ol.empty()) {
         std::string id = ol[(size_t)s.evariant % ol.size()].get<std::string>();
         static std::set<std::string> failed;
@@ -328,7 +332,8 @@ void Game::setupSlotSoldier(const RosterSlot& rs, AiType ait, int variant, int& 
           if (cm->load(contentDir() / "characters" / (id + ".glb"), e)) { modelIdx[id] = (int)models.size(); models.push_back(std::move(cm)); }
           else { failed.insert(id); logf("operators: model %s: %s (soldier body kept)", id.c_str(), e.c_str()); }
         }
-        if (modelIdx.count(id)) s.model = modelIdx[id];
+        if (modelIdx.count(id)) { s.model = modelIdx[id];
+          if (const float k = combat.value("model_scale", json::object()).value(id, 0.0f); k > 0) s.eScale = s.eBody = std::clamp(k, 0.5f, 3.0f); }   // OPF1: a body's own size (as a kit's "scale", RB6)
       }
     }
     if (s.gunBody) {   // a body per weapon, the gun in its mesh (combat.json gunbody_models.<kind>: [model, weapon], in turn). Missing: the soldier body it had
