@@ -2313,7 +2313,7 @@
       ]
     },
     {
-      "note": "KN9: AI type Knight 9 (33): Knight 5's body with a steel-recoloured Maximilian close helmet (KN9b: matched to his armour, half-way in colour and fully in shine: tools/enemies/glb_match_material.py) over the shaved head and a Polish-Ottoman sabre, the Pro Melee Axe Pack clips mapped as Knight 5 plus the sword-and-shield pack's two deaths (tools/enemies/knight_add_clips.py) (content/characters/knight_9.glb; credits in docs/credits.md). Strike: on the sabre's blade (bone + at)",
+      "note": "KN9: AI type Knight 9 (33): Knight 5's body with a steel-recoloured Maximilian close helmet (KN9b: matched to his armour in colour and shine: tools/enemies/glb_match_material.py) over the shaved head and a Polish-Ottoman sabre, the Pro Melee Axe Pack clips mapped as Knight 5 plus the sword-and-shield pack's two deaths (tools/enemies/knight_add_clips.py) (content/characters/knight_9.glb; credits in docs/credits.md). Strike: on the sabre's blade (bone + at)",
       "id": "knight9", "class": "knight",
       "hit_fx": "sparks",
       "name": "Knight 9",
