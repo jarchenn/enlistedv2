@@ -298,6 +298,7 @@ void Game::setupSlotSoldier(const RosterSlot& rs, AiType ait, int variant, int& 
             : ait == AiType::Dragon ? std::max(0, enemyTypeIndex("dragon"))   // DR1: the Mountain Dragon, ground only
             : ait == AiType::Civilians ? enemyTypeNpcPick((uint32_t)rs.id)   // NPC1: one of the civilian types per slot
             : ait == AiType::SpearKnight ? std::max(0, enemyTypeIndex("knight_spear"))   // KS: the Spear Knight (its build picked per spawn from "models")
+            : ait == AiType::ChineseSoldier ? std::max(0, enemyTypeIndex("chinese_soldier"))   // CS1
             : ait == AiType::RomanArcher ? std::max(0, enemyTypeIndex(fs::exists(contentDir() / "characters" / "roman_archer.glb") ? "roman_archer" : fs::exists(contentDir() / "characters" / "archer_2.glb") ? "archer2" : "archer1"))   // RA1: Archer 2 (or Archer 1) were its model missing
             : ait == AiType::Archers2 ? std::max(0, enemyTypeIndex(fs::exists(contentDir() / "characters" / "archer_2.glb") ? "archer2" : "archer1"))   // AR2: its model is local-only (the tunic is CC-BY-NC-ND): Archer 1 without it
             : ait == AiType::Abominations ? std::max(0, enemyTypeIndex("abomination")) : ait == AiType::Golems ? std::max(0, enemyTypeIndex("golem"))
