@@ -10,6 +10,7 @@
 #include "physics.h"
 #include "ai_hooks.h"
 #include <cstring>
+#include <fstream>
 #include <map>
 #include <unordered_map>
 #include <queue>
@@ -302,7 +303,9 @@ void main() { uint i = gl_GlobalInvocationID.x; if (i >= uint(uN) || sm[i].b.z =
   vec3 c = u[i].pos.xyz + vec3(0, 0.9, 0);
   for (int k = 0; k < 6; ++k) if (dot(uPl[k].xyz, c) + uPl[k].w < -1.3) return;
   float px = uK * u[i].anim.w / max(0.5, length(c - uEye)); if (px < 1.5) return;
-  uint b = uint(sm[i].b.y) * 3u + (px > 40.0 ? 0u : px > 12.0 ? 1u : 2u);   // GC5: LOD0 over 40 px, LOD1 12-40, the impostor 1.5-12 uint k = atomicAdd(vcnt[b], 1u); if (k < uint(uCapB)) vis[b * uint(uCapB) + k] = i; })";
+  // GC5: LOD0 over 40 px, LOD1 12-40, the impostor 1.5-12
+  uint b = uint(sm[i].b.y) * 3u + (px > 40.0 ? 0u : px > 12.0 ? 1u : 2u);
+  uint k = atomicAdd(vcnt[b], 1u); if (k < uint(uCapB)) vis[b * uint(uCapB) + k] = i; })";
 const char* kCmdCS = R"(#version 450
 layout(local_size_x = 64) in;
 struct Cmd { uint count, inst, first, baseV, baseI; };
@@ -312,7 +315,25 @@ layout(std430, binding = 9) readonly buffer CmdB { uint cb[]; };
 uniform int uNCmd; uniform uint uCapB;
 void main() { uint k = gl_GlobalInvocationID.x; if (k >= uint(uNCmd)) return; cmd[k].inst = min(vcnt[cb[k]], uCapB); })";
 
+// GC6b: a source whose braces / brackets do not balance once its comments are stripped (a // swallowing the rest of a line
+// cut GC5's cull pass short): logged and refused here, the driver's "unexpected EOF" names no line
+bool balanced(const std::string& s, std::string& why) {
+  int br = 0, pa = 0; bool line = false, block = false;
+  for (size_t k = 0; k < s.size(); ++k) {
+    const char c = s[k], n = k + 1 < s.size() ? s[k + 1] : 0;
+    if (line) { if (c == '\n') line = false; continue; }
+    if (block) { if (c == '*' && n == '/') { block = false; ++k; } continue; }
+    if (c == '/' && n == '/') { line = true; ++k; continue; }
+    if (c == '/' && n == '*') { block = true; ++k; continue; }
+    br += c == '{' ? 1 : c == '}' ? -1 : 0; pa += c == '(' ? 1 : c == ')' ? -1 : 0;
+    if (br < 0 || pa < 0) break;
+  }
+  if (br || pa) { why = "braces " + std::to_string(br) + ", parentheses " + std::to_string(pa) + " left open"; return false; }
+  return true;
+}
 GLuint compileCS(const std::string& src, const char* name) {
+  if (const char* d = std::getenv("NMK_CROWD_DUMP")) { std::ofstream(std::string(d) + "/crowd_" + name + ".comp", std::ios::binary) << src; }   // the source as the driver gets it
+  { std::string why; if (!balanced(src, why)) { logf("crowd: %s: source does not balance: %s", name, why.c_str()); return 0; } }
   GLuint s = glCreateShader(GL_COMPUTE_SHADER); const char* p = src.c_str(); glShaderSource(s, 1, &p, nullptr); glCompileShader(s);
   GLint ok = 0; glGetShaderiv(s, GL_COMPILE_STATUS, &ok);
   if (!ok) { char log[4096]; glGetShaderInfoLog(s, sizeof log, nullptr, log); logf("crowd: %s: %s", name, log); glDeleteShader(s); return 0; }
