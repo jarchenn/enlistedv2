@@ -4507,6 +4507,7 @@ static const char* kExpoFS = R"GLSL(
 #version 450 core
 uniform sampler2D uHdr, uPrev; uniform float uLod, uDt, uReset;
 uniform float uExpoKey, uExpoMin, uExpoMax;   // L2 time of day: Day 0.24, 0.9 .. 1.45; night opens the range (lighting.cpp)
+uniform float uRescale = 1.0;   // WD1 wxcarry: this frame only, the stored exposure x the weather switch's change in light
 uniform float uExpoFloor;   // FX1: while the headlamp is on, the exposure at switch-on (fading): its lit patch does not pump the scene down
 uniform int uHist; uniform float uHistCal;   // VO L8: histogram metering (Lighting New), its calibration to the old mean metering
 uniform int uFxExpo, uFreeze;   // BF fxexpo (spec 5.2 / ref 05 5.6): top 4 % rejected, EV rate-limited in stops / s; uFreeze: hold (own-weapon fire)
@@ -4536,6 +4537,7 @@ void mainE(){
   vec3 avg = textureLod(uHdr, vec2(0.5), uLod).rgb;
   float prev = texelFetch(uPrev, ivec2(0), 0).r;
   if (isnan(prev) || isinf(prev) || prev <= 0.0) prev = 1.0;   // never absorbing: fxexpo's rate limit multiplies prev, so a 0 / NaN would stay black for good
+  if (uRescale != 1.0) prev = clamp(prev*uRescale, uExpoMin, max(uExpoMax, uExpoFloor));   // WD1: the weather switched: start from where the new light needs it
   if (uReset > 0.0) { oE = uReset; return; }
   float lr = uHist == 1 ? histLum() : dot(avg, vec3(0.2126,0.7152,0.0722));
   if (isnan(lr) || isinf(lr)) { oE = prev; return; }   // one non-finite pixel poisons the whole mip average
@@ -7626,6 +7628,24 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
   glUniform1i(U(progExpo, "uHdr"), 0); glUniform1i(U(progExpo, "uPrev"), 1);
   glUniform1f(U(progExpo, "uLod"), (float)levels); glUniform1f(U(progExpo, "uDt"), v.dt);
   glUniform1f(U(progExpo, "uReset"), expoReset); expoReset = -1;
+  {   // WD1 wxcarry: a weather switch changes the sun and sky in one frame (weatherDerive), while the meter opens at 0.9 stops / s
+    // (fxexpo, the eye): Clear -> Thunderstorm started 5 stops dark and took ~4 s to recover. At the switch the stored exposure is
+    // scaled by the change in key / light on a level surface (the main pass's sun and sky this frame against last frame's), so
+    // the new weather starts where its own meter settles; the meter's rate limits then only handle the eye moving
+    const vec3 lw(0.2126f, 0.7152f, 0.0722f);
+    const float lvl = glm::dot(lastSunCol, lw) * std::max(sunDir.y, 0.0f) / 3.14159265f + glm::dot(lastSkyCol, lw), key = wx.der.phys ? wx.der.keyMul : 1.0f;
+    float rs = 1.0f;
+    if (!thumbMode) {
+      const bool sw = wx.der.preset != wxPresetPrev || wx.der.phys != wxPhysPrev;
+      if (sw && perf.wxCarry && wxPresetPrev != -99 && wxLvlPrev > 1e-6f && lvl > 1e-6f) {
+        rs = std::clamp((key / lvl) / (wxKeyPrev / wxLvlPrev), 1.0f / 64.0f, 64.0f);
+        logf("wxcarry: weather %d -> %d (phys %d -> %d): level light %.4f -> %.4f, key %.3f -> %.3f: exposure x%.2f", wxPresetPrev, wx.der.preset, wxPhysPrev ? 1 : 0, wx.der.phys ? 1 : 0, wxLvlPrev, lvl, wxKeyPrev, key, rs);
+      }
+      wxPresetPrev = wx.der.preset; wxPhysPrev = wx.der.phys;
+      if (wx.der.flash < 0.01f || sw) { wxLvlPrev = lvl; wxKeyPrev = key; }   // a lightning flash lifts this frame's sky: not the weather's light (leaving a storm mid-flash started the next one dark)
+    }
+    glUniform1f(U(progExpo, "uRescale"), rs);
+  }
   lightingExposure(*this, progExpo);   // L2: exposure range of the time of day
   {   // FX1 headlamp floor; wxexpo: by day in a dark preset the exposure never sits below 0.75 x its own compensation (the meter
     // balances a rain frame on the bright fog and sky, so it opened only ~1.3x where the ground needs ~4-5x)
@@ -7633,7 +7653,8 @@ void Renderer::render(const RenderView& v0, const Terrain& t, const std::vector<
     wxFloor = perf.wxExpo && wx.der.phys && !thumbMode && !wx.enclosed && !camIndoor && q.lightNew && !q.legacy ? 0.75f * std::clamp(wx.der.fixedMul, 1.0f, 12.0f) * sunUp : 0.0f;
     glUniform1f(U(progExpo, "uExpoFloor"), std::max(flashOn ? flashExpoFloor : 0.0f, wxFloor));
     static const bool expoLog = std::getenv("NMK_EXPO_LOG") != nullptr; static double lastLog = -1;
-    if ((expoLog || glProbeFrames > 0) && time - lastLog >= 1.0) {   // reads the previous frame's result (stalls: logs only)
+    static const float expoLogS = expoLog && std::atof(std::getenv("NMK_EXPO_LOG")) > 0 ? (float)std::atof(std::getenv("NMK_EXPO_LOG")) : 1.0f;   // NMK_EXPO_LOG=<s>: the interval (WD1: 0.25 round a weather switch)
+    if ((expoLog || glProbeFrames > 0) && time - lastLog >= expoLogS) {   // reads the previous frame's result (stalls: logs only)
       lastLog = time; float e[4] = {0, 0, 0, 0}; glGetTextureImage(expoTex[expoIdx], 0, GL_RGBA, GL_FLOAT, sizeof e, e);
       const vec3 lw(0.2126f, 0.7152f, 0.0722f); extern float lightingExpoMaxNow(); extern float lightingExpoKeyNow();
       logf("exposure: %.3f (metered luminance %.4f, p98 %.3f), floor %.2f, ceiling %.2f, key %.3f, preset %d fixedMul %.2f keyMul %.2f, sun %.2f; key light on a level surface %.4f (key height %.2f), sky %.4f, indoor %d, enclosed %d",

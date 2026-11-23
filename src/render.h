@@ -127,6 +127,7 @@ public:
   float expoFreezeUntil = -1.0f; void exposureFreeze(float s) { expoFreezeUntil = std::max(expoFreezeUntil, time + s); }   // BF: hold the auto exposure (own-weapon discharge: 0.15 s)
   float shimmerPx = 0;   // W5: this frame's heat-shimmer amplitude (tests)
   float physEV = 15.0f, physExpo = 0.0f;   // CP2 Lighting Physical: this frame's EV100 and the tone pass's exposure (0 = not physical)
+  float wxLvlPrev = -1.0f, wxKeyPrev = 1.0f; int wxPresetPrev = -99; bool wxPhysPrev = false;   // WD1 wxcarry: last frame's level-surface light, key factor and preset
   float wxFloor = 0.0f;   // wxexpo: this frame's exposure floor in a dark preset by day
   float physSunY = 1.0f;   // CP2: the true sun's height this frame (LightingPass::begin; sunDir is the moon's at night)
   float sunDirectFrac = 1.0f, sunShK = 1.0f;   // OPT wxsun: last setLighting's direct-sun share; this frame's cascade strength (0 = none drawn)
@@ -384,6 +385,7 @@ public:
     bool ssrRange = true;        // ssrrange (OPT, weather corpus s3.4): SSR stops at 0.75 x the weather's visibility
     bool w2Sky = true;           // w2sky (W2): overcast sky zenith 3x the horizon (CIE), haze fades into the sky's own horizon colour (Lighting New)
     bool w2Mist = true;          // w2mist (W2): environmental fog without the 0.3 floor everywhere, 2-3x patchy
+    bool wxCarry = true;         // wxcarry (WD1): at a weather switch the exposure is carried across by the change in light (the light jumps in one frame; the eye-rate meter took 3-4 s to open: up to 5 stops dark)
     bool wxExpo = true;          // wxexpo: rain / overcast / storm by day are exposure states: the meter may open by the preset's own compensation (ceiling x fixedMul) and keeps a quarter of the light change (was a third, capped at the day's 1.45: dusk at noon)
     bool w2Expo = true;          // w2expo (W2): overcast on a snow map exposes up (x1.2) instead of down (x0.72)
     bool lightning = true;       // lightning (W2): Thunderstorm flashes and strike events (wx.strikes, for thunder)
@@ -486,7 +488,7 @@ public:
               // One line per stream, each followed by a comment line, so two streams appending names no longer conflict in merges.
               : n == "tnormal" ? &terrainNormals : n == "tmorph" ? &terrainMorph : n == "tskyview" ? &terrainSkyView : n == "ttilelod" ? &terrainTileLod : n == "thorizon" ? &terrainHorizon
               // ^ stream T (terrain): append to the line above
-              : n == "contactsh" ? &contactShadow : n == "fullshadow" ? &fullShadow : n == "gtao" ? &gtao : n == "midcascade" ? &midCascade : n == "microsh" ? &microShadow : n == "foltrans" ? &folTrans : n == "agx" ? &agx : n == "histexpo" ? &histExpo : n == "skyrelit" ? &skyRelit : n == "atmo" ? &atmo : n == "reflprobe" ? &reflProbe : n == "wxexpo" ? &wxExpo : n == "nightdark" ? &nightDark : n == "roomdark" ? &roomDark : n == "dustvis" ? &dustVis : n == "overcastsun" ? &overcastSun : n == "cutlamp" ? &cutLamp
+              : n == "contactsh" ? &contactShadow : n == "fullshadow" ? &fullShadow : n == "gtao" ? &gtao : n == "midcascade" ? &midCascade : n == "microsh" ? &microShadow : n == "foltrans" ? &folTrans : n == "agx" ? &agx : n == "histexpo" ? &histExpo : n == "skyrelit" ? &skyRelit : n == "atmo" ? &atmo : n == "reflprobe" ? &reflProbe : n == "wxexpo" ? &wxExpo : n == "wxcarry" ? &wxCarry : n == "nightdark" ? &nightDark : n == "roomdark" ? &roomDark : n == "dustvis" ? &dustVis : n == "overcastsun" ? &overcastSun : n == "cutlamp" ? &cutLamp
               // ^ stream L (lighting): append to the line above
               : n == "specaa" ? &specAA : n == "texbias" ? &texBias : n == "hex" ? &hex : n == "hblend" ? &hblend : n == "texlate" ? &texLate : n == "groundtaps" ? &groundTaps : n == "splitsum" ? &splitSum : n == "albclamp" ? &albClamp : n == "wabs" ? &wAbs : n == "wet" ? &wet : n == "microdetail" ? &microDetail : n == "wearcause" ? &wearCause : n == "steeptri" ? &steepTri : n == "absfar" ? &absFar : n == "layerblend" ? &layerBlend : n == "reach" ? &reach : n == "instvar" ? &instVar : n == "vmclassic" ? &vmClassic : n == "ssrclamp" ? &ssrClamp : n == "pudrelief" ? &pudRelief : n == "masklib" ? &maskLib : n == "roughvar" ? &roughVar
               // ^ stream M (materials): append to the line above

@@ -7,6 +7,9 @@
 #include <cstring>
 #include <cctype>
 #include <cstdlib>
+#include <string>
+#include <vector>
+#include "common.h"
 
 using WxState = Renderer::WxState; using WxDerived = Renderer::WxDerived;
 constexpr int WxNone = Renderer::WxNone, WxDrizzle = Renderer::WxDrizzle, WxRain = Renderer::WxRain, WxSnow = Renderer::WxSnow;
@@ -65,6 +68,21 @@ void weatherDerive(Renderer& R, vec3 eye) {
   static bool envDone = false;   // NMK_WEATHER=<name or id>: once, at the first frame (the collective run / captures)
   if (std::getenv("NMK_LIGHT_PHYS")) { R.q.lightNew = true; R.q.lightPhys = true; }   // runs: Lighting Physical without touching the settings file
   if (!envDone) { envDone = true; if (const char* e = std::getenv("NMK_WEATHER")) { int id = std::isdigit((unsigned char)e[0]) ? std::atoi(e) : wxPresetFromName(e); if (id >= 0) weatherForce(R, id); } }
+  {   // WD1 check: NMK_WX_SEQ=<id>:<s>,<id>:<s>,... or all:<s> (every ordered pair of presets, each held <s>) switches the
+    // weather as the menu does (target, the deck ramping; no snap), once through; with NMK_EXPO_LOG the exposure is logged
+    static std::vector<std::pair<int, float>> seq; static bool parsed = false; static double t0 = -1; static int at = -1;
+    if (!parsed) { parsed = true;
+      if (const char* e = std::getenv("NMK_WX_SEQ")) { std::string s = e;
+        if (s.rfind("all:", 0) == 0) { const float h = (float)std::atof(s.c_str() + 4); const int n = wxPresetCount();
+          seq.push_back({wxPresetIdAt(0), h});
+          for (int i = 0; i < n; ++i) { for (int j = i + 1; j < n; ++j) { seq.push_back({wxPresetIdAt(j), h}); seq.push_back({wxPresetIdAt(i), h}); } if (i + 1 < n) seq.push_back({wxPresetIdAt(i + 1), h}); }
+        } else for (size_t p = 0; p < s.size();) { size_t c = s.find(',', p); std::string it = s.substr(p, c == std::string::npos ? std::string::npos : c - p); size_t k = it.find(':');
+          if (k != std::string::npos) seq.push_back({std::atoi(it.c_str()), (float)std::atof(it.c_str() + k + 1)}); p = c == std::string::npos ? s.size() : c + 1; }
+        logf("wxseq: %zu steps", seq.size()); } }
+    if (!seq.empty()) { if (t0 < 0) t0 = R.cloudClock(); double t = R.cloudClock() - t0; int k = 0; for (; k < (int)seq.size() && t >= seq[k].second; ++k) t -= seq[k].second;
+      if (k < (int)seq.size() && k != at) { at = k; W.target = seq[k].first; W.userSet = true; logf("wxseq: step %d/%zu: weather %d %s", k + 1, seq.size(), seq[k].first, wxPresetName(seq[k].first)); }
+      if (k >= (int)seq.size() && at != -2) { at = -2; logf("wxseq: done"); } }
+  }
   const int id = W.want();
   const Row& row = *rowOf(id);
   W.st = row.st;
