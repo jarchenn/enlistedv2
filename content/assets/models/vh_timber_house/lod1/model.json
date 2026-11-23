@@ -1,9 +1,9 @@
 {
  "animDuration": 0.0,
  "bmax": [
-  4.251603603363037,
+  4.269055366516113,
   6.702594757080078,
-  4.709478378295898
+  4.745181083679199
  ],
  "bmin": [
   -4.246268272399902,
@@ -17,18 +17,23 @@
   },
   {
    "albedo": "albedo_2.jpg",
-   "name": "pr10_floor_boards_old",
+   "name": "vh1_stone",
    "normal": "normal_1.jpg"
   },
   {
    "albedo": "albedo_4.jpg",
-   "name": "pr10_beam_weathered",
+   "name": "pr10_floor_boards_old",
    "normal": "normal_3.jpg"
   },
   {
    "albedo": "albedo_6.jpg",
-   "name": "pr10_plaster_old",
+   "name": "pr10_beam_weathered",
    "normal": "normal_5.jpg"
+  },
+  {
+   "albedo": "albedo_2.jpg",
+   "name": "pr10_bricks_075a",
+   "normal": "normal_1.jpg"
   }
  ],
  "parts": [
@@ -40,22 +45,48 @@
     1.0
    ],
    "bmax": [
-    4.251603603363037,
+    4.269055366516113,
     6.702594757080078,
-    4.709478378295898
+    4.745181083679199
    ],
    "bmin": [
     -4.246268272399902,
     0.0,
     -4.745181083679199
    ],
-   "count": 714,
+   "count": 531,
    "first": 0,
    "mat": 0,
    "metal": 0.0,
    "name": "poutre_5_1_Mat.1_0.002",
    "role": "body",
    "rough": 0.3854297995567322,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    4.039885520935059,
+    6.699056625366211,
+    4.2966227531433105
+   ],
+   "bmin": [
+    -4.094625473022461,
+    0.0,
+    -4.366264343261719
+   ],
+   "count": 180,
+   "first": 531,
+   "mat": 1,
+   "metal": 0.0,
+   "name": "poutre_5_1_Mat.1_0.002",
+   "role": "body",
+   "rough": 0.8999999761581421,
    "textured": true
   },
   {
@@ -76,8 +107,8 @@
     -4.190499782562256
    ],
    "count": 72,
-   "first": 714,
-   "mat": 1,
+   "first": 711,
+   "mat": 2,
    "metal": 0.0,
    "name": "poutre_5_1_Mat.1_0.002",
    "role": "body",
@@ -102,8 +133,8 @@
     -4.190499782562256
    ],
    "count": 72,
-   "first": 786,
-   "mat": 2,
+   "first": 783,
+   "mat": 3,
    "metal": 0.0,
    "name": "poutre_5_1_Mat.1_0.002",
    "role": "body",
@@ -128,8 +159,8 @@
     -4.186149597167969
    ],
    "count": 276,
-   "first": 858,
-   "mat": 3,
+   "first": 855,
+   "mat": 4,
    "metal": 0.0,
    "name": "poutre_5_1_Mat.1_0.002",
    "role": "body",
@@ -146,6 +177,6 @@
  "scale": 1.0,
  "source": "vh_timber_house.glb",
  "textures": {},
- "triangles": 378,
- "vertices": 620
+ "triangles": 377,
+ "vertices": 683
 }

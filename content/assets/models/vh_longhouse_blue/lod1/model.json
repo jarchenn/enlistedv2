@@ -17,18 +17,23 @@
   },
   {
    "albedo": "albedo_2.jpg",
-   "name": "pr10_floor_boards_old",
+   "name": "vh1_stone",
    "normal": "normal_1.jpg"
   },
   {
    "albedo": "albedo_4.jpg",
-   "name": "pr10_beam_weathered",
+   "name": "pr10_floor_boards_old",
    "normal": "normal_3.jpg"
   },
   {
    "albedo": "albedo_6.jpg",
-   "name": "pr10_plaster_old",
+   "name": "pr10_beam_weathered",
    "normal": "normal_5.jpg"
+  },
+  {
+   "albedo": "albedo_2.jpg",
+   "name": "pr10_limestone_coursed",
+   "normal": "normal_1.jpg"
   }
  ],
  "parts": [
@@ -49,13 +54,39 @@
     0.0,
     -5.027599334716797
    ],
-   "count": 492,
+   "count": 267,
    "first": 0,
    "mat": 0,
    "metal": 0.0,
    "name": "Cube_1_Mat_0.002",
    "role": "body",
    "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    2.240586519241333,
+    7.826177597045898,
+    4.488508701324463
+   ],
+   "bmin": [
+    -2.329270124435425,
+    0.0,
+    -4.5400710105896
+   ],
+   "count": 222,
+   "first": 267,
+   "mat": 1,
+   "metal": 0.0,
+   "name": "Cube_1_Mat_0.002",
+   "role": "body",
+   "rough": 0.8999999761581421,
    "textured": true
   },
   {
@@ -76,8 +107,8 @@
     -4.329699993133545
    ],
    "count": 36,
-   "first": 492,
-   "mat": 1,
+   "first": 489,
+   "mat": 2,
    "metal": 0.0,
    "name": "Cube_1_Mat_0.002",
    "role": "body",
@@ -102,8 +133,8 @@
     -4.329699993133545
    ],
    "count": 36,
-   "first": 528,
-   "mat": 2,
+   "first": 525,
+   "mat": 3,
    "metal": 0.0,
    "name": "Cube_1_Mat_0.002",
    "role": "body",
@@ -128,8 +159,8 @@
     -4.325349807739258
    ],
    "count": 258,
-   "first": 564,
-   "mat": 3,
+   "first": 561,
+   "mat": 4,
    "metal": 0.0,
    "name": "Cube_1_Mat_0.002",
    "role": "body",
@@ -146,6 +177,6 @@
  "scale": 1.0,
  "source": "vh_longhouse_blue.glb",
  "textures": {},
- "triangles": 274,
- "vertices": 361
+ "triangles": 273,
+ "vertices": 445
 }

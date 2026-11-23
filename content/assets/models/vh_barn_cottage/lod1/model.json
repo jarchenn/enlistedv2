@@ -21,18 +21,23 @@
   },
   {
    "albedo": "albedo_3.jpg",
-   "name": "pr10_floor_boards_old",
+   "name": "vh1_stone",
    "normal": "normal_2.jpg"
   },
   {
    "albedo": "albedo_5.jpg",
-   "name": "pr10_beam_weathered",
+   "name": "pr10_floor_boards_old",
    "normal": "normal_4.jpg"
   },
   {
    "albedo": "albedo_7.jpg",
-   "name": "pr10_plaster_old",
+   "name": "pr10_beam_weathered",
    "normal": "normal_6.jpg"
+  },
+  {
+   "albedo": "albedo_3.jpg",
+   "name": "pr10_limestone_dressed",
+   "normal": "normal_2.jpg"
   }
  ],
  "parts": [
@@ -53,7 +58,7 @@
     2.307199478149414,
     -2.397353410720825
    ],
-   "count": 126,
+   "count": 120,
    "first": 0,
    "mat": 0,
    "metal": 0.0,
@@ -71,21 +76,47 @@
    ],
    "bmax": [
     4.055644989013672,
-    4.742675304412842,
+    4.496952533721924,
     1.949343204498291
    ],
    "bmin": [
-    -4.0446600914001465,
+    -4.075389862060547,
     0.0,
-    -2.078684091567993
+    -2.0661301612854004
    ],
-   "count": 237,
-   "first": 126,
+   "count": 156,
+   "first": 120,
    "mat": 1,
    "metal": 0.0,
    "name": "toit_wire_115115115_0.001",
    "role": "body",
    "rough": 0.800000011920929,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    4.055644989013672,
+    4.738544464111328,
+    1.949343204498291
+   ],
+   "bmin": [
+    -4.075389862060547,
+    0.0,
+    -2.078684091567993
+   ],
+   "count": 96,
+   "first": 276,
+   "mat": 2,
+   "metal": 0.0,
+   "name": "toit_wire_115115115_0.001",
+   "role": "body",
+   "rough": 0.8999999761581421,
    "textured": true
   },
   {
@@ -106,8 +137,8 @@
     -1.8734002113342285
    ],
    "count": 36,
-   "first": 363,
-   "mat": 2,
+   "first": 372,
+   "mat": 3,
    "metal": 0.0,
    "name": "toit_wire_115115115_0.001",
    "role": "body",
@@ -132,8 +163,8 @@
     -1.8734002113342285
    ],
    "count": 36,
-   "first": 399,
-   "mat": 3,
+   "first": 408,
+   "mat": 4,
    "metal": 0.0,
    "name": "toit_wire_115115115_0.001",
    "role": "body",
@@ -158,8 +189,8 @@
     -1.8734002113342285
    ],
    "count": 162,
-   "first": 435,
-   "mat": 4,
+   "first": 444,
+   "mat": 5,
    "metal": 0.0,
    "name": "toit_wire_115115115_0.001",
    "role": "body",
@@ -176,6 +207,6 @@
  "scale": 1.0,
  "source": "vh_barn_cottage.glb",
  "textures": {},
- "triangles": 199,
- "vertices": 306
+ "triangles": 202,
+ "vertices": 336
 }

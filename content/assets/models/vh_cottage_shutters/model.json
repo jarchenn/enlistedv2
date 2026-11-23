@@ -17,18 +17,23 @@
   },
   {
    "albedo": "albedo_2.jpg",
-   "name": "pr10_floor_boards_old",
+   "name": "vh1_stone",
    "normal": "normal_1.jpg"
   },
   {
    "albedo": "albedo_4.jpg",
-   "name": "pr10_beam_weathered",
+   "name": "pr10_floor_boards_old",
    "normal": "normal_3.jpg"
   },
   {
    "albedo": "albedo_6.jpg",
-   "name": "pr10_plaster_old",
+   "name": "pr10_beam_weathered",
    "normal": "normal_5.jpg"
+  },
+  {
+   "albedo": "albedo_2.jpg",
+   "name": "pr10_limestone_coursed",
+   "normal": "normal_1.jpg"
   }
  ],
  "parts": [
@@ -49,13 +54,39 @@
     0.0,
     -2.7014658451080322
    ],
-   "count": 1980,
+   "count": 1479,
    "first": 0,
    "mat": 0,
    "metal": 0.0,
    "name": "Box024_2_wire_115115115_0.002",
    "role": "body",
    "rough": 0.800000011920929,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    2.1403746604919434,
+    4.519269943237305,
+    2.534928798675537
+   ],
+   "bmin": [
+    -2.0655722618103027,
+    0.0009325789869762957,
+    -2.529111862182617
+   ],
+   "count": 501,
+   "first": 1479,
+   "mat": 1,
+   "metal": 0.0,
+   "name": "Box024_2_wire_115115115_0.002",
+   "role": "body",
+   "rough": 0.8999999761581421,
    "textured": true
   },
   {
@@ -77,7 +108,7 @@
    ],
    "count": 36,
    "first": 1980,
-   "mat": 1,
+   "mat": 2,
    "metal": 0.0,
    "name": "Box024_2_wire_115115115_0.002",
    "role": "body",
@@ -103,7 +134,7 @@
    ],
    "count": 36,
    "first": 2016,
-   "mat": 2,
+   "mat": 3,
    "metal": 0.0,
    "name": "Box024_2_wire_115115115_0.002",
    "role": "body",
@@ -129,7 +160,7 @@
    ],
    "count": 540,
    "first": 2052,
-   "mat": 3,
+   "mat": 4,
    "metal": 0.0,
    "name": "Box024_2_wire_115115115_0.002",
    "role": "body",
@@ -147,5 +178,5 @@
  "source": "vh_cottage_shutters.glb",
  "textures": {},
  "triangles": 864,
- "vertices": 1351
+ "vertices": 1475
 }

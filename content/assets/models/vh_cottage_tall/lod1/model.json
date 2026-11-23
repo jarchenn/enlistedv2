@@ -2,7 +2,7 @@
  "animDuration": 0.0,
  "bmax": [
   2.1453487873077393,
-  6.82545280456543,
+  6.7422685623168945,
   2.703433036804199
  ],
  "bmin": [
@@ -17,18 +17,23 @@
   },
   {
    "albedo": "albedo_2.jpg",
-   "name": "pr10_floor_boards_old",
+   "name": "vh1_stone",
    "normal": "normal_1.jpg"
   },
   {
    "albedo": "albedo_4.jpg",
-   "name": "pr10_beam_weathered",
+   "name": "pr10_floor_boards_old",
    "normal": "normal_3.jpg"
   },
   {
    "albedo": "albedo_6.jpg",
-   "name": "pr10_plaster_old",
+   "name": "pr10_beam_weathered",
    "normal": "normal_5.jpg"
+  },
+  {
+   "albedo": "albedo_2.jpg",
+   "name": "pr10_limestone_coursed",
+   "normal": "normal_1.jpg"
   }
  ],
  "parts": [
@@ -41,7 +46,7 @@
    ],
    "bmax": [
     2.1453487873077393,
-    6.82545280456543,
+    6.7422685623168945,
     2.703433036804199
    ],
    "bmin": [
@@ -49,13 +54,39 @@
     0.0,
     -2.703433036804199
    ],
-   "count": 864,
+   "count": 624,
    "first": 0,
    "mat": 0,
    "metal": 0.0,
    "name": "Box030_1_wire_115115115_0.002",
    "role": "body",
    "rough": 0.800000011920929,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    2.0771644115448,
+    5.289412498474121,
+    2.6115469932556152
+   ],
+   "bmin": [
+    -2.0417251586914063,
+    0.0,
+    -2.4896349906921387
+   ],
+   "count": 234,
+   "first": 624,
+   "mat": 1,
+   "metal": 0.0,
+   "name": "Box030_1_wire_115115115_0.002",
+   "role": "body",
+   "rough": 0.8999999761581421,
    "textured": true
   },
   {
@@ -76,8 +107,8 @@
     -2.1344003677368164
    ],
    "count": 36,
-   "first": 864,
-   "mat": 1,
+   "first": 858,
+   "mat": 2,
    "metal": 0.0,
    "name": "Box030_1_wire_115115115_0.002",
    "role": "body",
@@ -102,8 +133,8 @@
     -2.1344003677368164
    ],
    "count": 36,
-   "first": 900,
-   "mat": 2,
+   "first": 894,
+   "mat": 3,
    "metal": 0.0,
    "name": "Box030_1_wire_115115115_0.002",
    "role": "body",
@@ -128,8 +159,8 @@
     -2.1300504207611084
    ],
    "count": 162,
-   "first": 936,
-   "mat": 3,
+   "first": 930,
+   "mat": 4,
    "metal": 0.0,
    "name": "Box030_1_wire_115115115_0.002",
    "role": "body",
@@ -146,6 +177,6 @@
  "scale": 1.0,
  "source": "vh_cottage_tall.glb",
  "textures": {},
- "triangles": 366,
- "vertices": 589
+ "triangles": 364,
+ "vertices": 689
 }

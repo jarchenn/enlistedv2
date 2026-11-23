@@ -17,18 +17,23 @@
   },
   {
    "albedo": "albedo_2.jpg",
-   "name": "pr10_floor_boards_old",
+   "name": "vh1_stone",
    "normal": "normal_1.jpg"
   },
   {
    "albedo": "albedo_4.jpg",
-   "name": "pr10_beam_weathered",
+   "name": "pr10_floor_boards_old",
    "normal": "normal_3.jpg"
   },
   {
    "albedo": "albedo_6.jpg",
-   "name": "pr10_plaster_old",
+   "name": "pr10_beam_weathered",
    "normal": "normal_5.jpg"
+  },
+  {
+   "albedo": "albedo_2.jpg",
+   "name": "pr10_limestone_dressed",
+   "normal": "normal_1.jpg"
   }
  ],
  "parts": [
@@ -49,13 +54,39 @@
     0.0,
     -3.106417417526245
    ],
-   "count": 1071,
+   "count": 825,
    "first": 0,
    "mat": 0,
    "metal": 0.0,
    "name": "maison7_Mat_0.002",
    "role": "body",
    "rough": 0.20000000298023224,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    3.5793488025665283,
+    7.17826509475708,
+    3.1509478092193604
+   ],
+   "bmin": [
+    -3.6308465003967285,
+    0.0,
+    -3.106417417526245
+   ],
+   "count": 246,
+   "first": 825,
+   "mat": 1,
+   "metal": 0.0,
+   "name": "maison7_Mat_0.002",
+   "role": "body",
+   "rough": 0.8999999761581421,
    "textured": true
   },
   {
@@ -77,7 +108,7 @@
    ],
    "count": 72,
    "first": 1071,
-   "mat": 1,
+   "mat": 2,
    "metal": 0.0,
    "name": "maison7_Mat_0.002",
    "role": "body",
@@ -103,7 +134,7 @@
    ],
    "count": 72,
    "first": 1143,
-   "mat": 2,
+   "mat": 3,
    "metal": 0.0,
    "name": "maison7_Mat_0.002",
    "role": "body",
@@ -129,7 +160,7 @@
    ],
    "count": 384,
    "first": 1215,
-   "mat": 3,
+   "mat": 4,
    "metal": 0.0,
    "name": "maison7_Mat_0.002",
    "role": "body",
@@ -147,5 +178,5 @@
  "source": "vh_stone_house_l.glb",
  "textures": {},
  "triangles": 533,
- "vertices": 842
+ "vertices": 883
 }
