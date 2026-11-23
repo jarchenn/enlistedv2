@@ -176,6 +176,7 @@ void crowdDestroy(CrowdType& t) {
 
 // ---------------------------------------------------------------- GC2: units on the GPU
 namespace {
+constexpr float kJog = 2.688125f;   // GC4d: settings/movement.json run_mps (the bots' jog)
 constexpr int kCap = 131072, kMaxTypes = 8, kSlots = 8;   // units; body x gun types (buckets = types x 2 LODs); units a hash cell holds
 struct Grid { vec2 org{0}; float cell = 2; int nx = 0, nz = 0; std::vector<float> h; std::vector<uint8_t> walk; };
 struct GpuCrowd {
@@ -277,9 +278,12 @@ void main() { uint i = gl_GlobalInvocationID.x; if (i >= uint(uN)) return;
     ivec2 q = c + ivec2(dx, dz); if (q.x < 0 || q.y < 0 || q.x >= uNx || q.y >= uNz) continue; uint ci = uint(q.y * uNx + q.x), m = min(cnt[ci], 8u);
     for (uint k = 0u; k < m; ++k) { uint j = idx[ci * 8u + k]; if (j == i) continue; vec2 d = p - u[j].pos.xz; float l = length(d); if (l > 1e-3 && l < 0.9) push += d / l * (0.9 - l); }
   }
-  vec2 v = s.a.xy, tv = want * s.a.w + push * 2.5;
+  // GC4d pace as the full bots (settings/movement.json run_mps, tactics.json walk_mps): s.a.w is the unit's jog, with nobody in range;
+  // closing on a target in range, the walk (firing on the move); +-8 % a unit so a line does not march in lockstep
+  const float pace = (tg >= 0 && tdist <= s.c.w ? min(s.a.w, 1.6) : s.a.w) * (0.92 + 0.16 * rnd(i, 7u));
+  vec2 v = s.a.xy, tv = want * pace + push * 2.5;
   v += (tv - v) * clamp(uDt * 4.0, 0.0, 1.0);
-  float sp = length(v); if (sp > s.a.w * 1.3) { v *= s.a.w * 1.3 / sp; sp = s.a.w * 1.3; }
+  float sp = length(v); if (sp > pace * 1.3) { v *= pace * 1.3 / sp; sp = pace * 1.3; }
   p += v * uDt; ivec2 nc = cellOf(p); if (K(t, nc) > 1e8) { p = x.pos.xz; v = vec2(0); sp = 0.0; }   // never onto an unwalkable cell
   x.pos.xz = p; x.pos.y = H(p);
   if (tg >= 0 && tdist <= s.c.w && (engaged || sp < 0.2)) { vec2 e = u[tg].pos.xz - p; float yw = atan(-e.x, -e.y); float d = yw - x.pos.w; d = mod(d + 3.14159265, 6.2831853) - 3.14159265; x.pos.w += d * clamp(uDt * 6.0, 0.0, 1.0); }
@@ -403,7 +407,7 @@ void testSource(Game& g) {   // NMK_CROWD=n: two armies of n / 2 on their halves
   const float hx = g.app.terrain.buildHalfX * 0.85f, hz = g.app.terrain.buildHalfZ * 0.85f; const int side = (int)std::ceil(std::sqrt((double)n));
   for (int i = 0; i < n; ++i) {
     const float x = -hx + 2 * hx * ((i % side) + 0.5f) / side, z = -hz + 2 * hz * ((i / side) + 0.5f) / side; const int team = x > 0 ? 1 : 0;
-    crowdSpawn(g, vec3(x, 0, z), team ? 1.5708f : -1.5708f, team, team ? mX : mA, team ? gX : gA, i % 7 == 0 ? 4.0f : 1.4f);
+    crowdSpawn(g, vec3(x, 0, z), team ? 1.5708f : -1.5708f, team, team ? mX : mA, team ? gX : gA, kJog);
   }
   crowdGoal(g, 0, vec3(hx, 0, 0)); crowdGoal(g, 1, vec3(-hx, 0, 0));
   logf("crowd: test source, %d units", C.n);
@@ -433,7 +437,7 @@ std::vector<std::pair<bool, std::string>> crowdSimSelfTest() {
     for (int t = 0; t < 2; ++t) for (int k = 0; k < per; ++k) {
       const float rank = (float)(k % 20) * 1.5f, x = t ? gap * 0.5f + rank : -gap * 0.5f - rank, z = -60.0f + (k / 20) * 1.5f;
       CrowdUnit u; u.pos = vec4(x, 5.0f, z, t ? 1.5708f : -1.5708f); u.prev = u.pos; u.anim = vec4(0, 0, (float)t, 1);
-      CrowdSim s; s.a = vec4(0, 0, 100, 1.4f); s.b = glm::ivec4(t, 0, 0, -1); s.c = vec4((float)(k % 97) * 0.02f, 0, glm::radians(1.1f), 150.0f);
+      CrowdSim s; s.a = vec4(0, 0, 100, kJog); s.b = glm::ivec4(t, 0, 0, -1); s.c = vec4((float)(k % 97) * 0.02f, 0, glm::radians(1.1f), 150.0f);
       if (C.stageU.empty()) C.stageFrom = 0; C.stageU.push_back(u); C.stageS.push_back(s); C.spawned[t]++; start.push_back(vec3(u.pos));
     }
     buildCost(0, vec3(170, 0, 0)); buildCost(1, vec3(-170, 0, 0));
@@ -451,7 +455,7 @@ std::vector<std::pair<bool, std::string>> crowdSimSelfTest() {
       const int cx = std::clamp((int)((p.x - G.org.x) / G.cell), 0, G.nx - 1), cz = std::clamp((int)((p.z - G.org.y) / G.cell), 0, G.nz - 1);
       if (!G.walk[(size_t)cz * G.nx + cx]) ++onWall;
       const float moved = glm::length(vec2(p.x - start[i].x, p.z - start[i].z));
-      if (moved > 1.4f * 1.3f * secs + 3.0f) ++tooFar;
+      if (moved > kJog * 1.08f * 1.3f * secs + 3.0f) ++tooFar;
       if (z == 0) { dx[t] += p.x - start[i].x; trav[t] += moved; ++nAlive[t]; }
     }
     chk(nan == 0, nm + "no NaN (" + std::to_string(nan) + ")");
@@ -469,9 +473,8 @@ std::vector<std::pair<bool, std::string>> crowdSimSelfTest() {
     }
     crowdReset();
   };
-  // march: walking 1.4 m/s for ~30 s round the wall's end, closing to 70 m (a 130 m close in all): ~40 m each; the front ranks
-  // come into range (150 m) after ~25 s, so a few fall at most
-  run("march", true, 200.0f, 900, 0, 200, 30.0f, 25.0f);
+  // march: jogging (2.69 m/s) round the wall's end until the front ranks are in range (150 m, ~13 s), then walking (1.6 m/s) to 70 m
+  run("march", true, 200.0f, 900, 0, 300, 50.0f, 35.0f);   // GC4d: jogging ~13 s until in range, then walking: ~60 m travelled
   // fight: the armies 80 m apart (every rank within 150 m from the start), close to 70 m and stand: hundreds fall a side
   run("fight", false, 80.0f, 600, 150, 1900, 0.0f, -5.0f);
   return r;
@@ -534,7 +537,7 @@ void crowdArmyStep(Game& g, float dt) {
       for (int k = 0; k < r.armyUnits[t]; ++k) {
         vec3 p = c - fw * (8.0f + (k / W) * 1.6f) + side * ((k % W - W * 0.5f) * 1.6f);
         p.x = std::clamp(p.x, -hx, hx); p.z = std::clamp(p.z, -hz, hz);
-        made += crowdSpawn(g, p, yaw, t, mods[k % mods.size()], gn, k % 9 == 0 ? 4.0f : 1.4f) >= 0;
+        made += crowdSpawn(g, p, yaw, t, mods[k % mods.size()], gn, kJog) >= 0;
       }
       logf("crowd: army %s (team %d): %d of %d reserves spawned", factionName(f), t, made, r.armyUnits[t]);
     }
@@ -567,7 +570,7 @@ void crowdArmyStep(Game& g, float dt) {
       bool far = true; for (auto& h : C.hum) { const float dx = s.feet.x - h.x, dz = s.feet.z - h.z, R = h.w + 60.0f; if (dx * dx + dz * dz < R * R) { far = false; break; } }
       C.farFor[i] = far ? C.farFor[i] + 0.5f : 0.0f;
       if (C.farFor[i] < 3.0f || g.t - s.lastShot < 3.0) continue;
-      if (crowdSpawn(g, s.feet, glm::radians(s.yaw), s.team, s.model, s.weapon, 1.4f, s.hp) < 0) break;   // the crowd is full
+      if (crowdSpawn(g, s.feet, glm::radians(s.yaw), s.team, s.model, s.weapon, kJog, s.hp) < 0) break;   // the crowd is full
       parkSoldier(g, i); C.farFor[i] = 0; ++done;
     }
     if (done) logf("crowd: %d soldiers went into the crowd", done);
