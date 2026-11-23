@@ -27,6 +27,7 @@
  "reloadStyle": "magazine",
  "casings": false,
  "tracerEvery": 0,
+ "hipDot": true, "hipExact": true, "_xb8": "XB8 (the user): a white dot at the hip; hip fire 100 % accurate: no dispersion, the bolt from the crossbow aimed at what the view centre is on (soldiers too) and tilted for its drop at that range",
  "sights": {
   "rear": [
    0.0,

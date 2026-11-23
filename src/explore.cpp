@@ -647,6 +647,10 @@ void App::drawExploreUI() {
       }
       dl->AddCircleFilled(c, 1.0f * k + 1.0f, dark); dl->AddCircleFilled(c, 1.0f * k, white);
     }
+    if (!occupied && !tanks.occupied && !weaponDefs.empty() && !scopeView() && weaponDefs[activeWeapon]->hipDot && adsT < 0.85f) {   // XB8 (the user): the crossbow's hip dot: white, a thin dark rim so it reads on snow and sky, fading out as the sights come up
+      const float k = std::max(1.0f, io.DisplaySize.y / 1080.0f) * settings().s.uiScale, f = 1.0f - std::clamp(adsT / 0.85f, 0.0f, 1.0f);
+      dl->AddCircleFilled(c, 2.2f * k + 1.2f, IM_COL32(0, 0, 0, (int)(150 * f))); dl->AddCircleFilled(c, 2.2f * k, IM_COL32(255, 255, 255, (int)(240 * f)));
+    }
     // (GM1b's black aim mark in the MG 42's rear notch removed at the user's request: the gun's own sights are the reference)
     if (target.valid && !tanks.occupied && !tanks.target && !smithyOpen()) {
       auto it = rt.find(target.inst);

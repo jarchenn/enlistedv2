@@ -234,6 +234,7 @@ void App::buildWeaponMeshes() {
         G.lMag = jkey(gp, "l").value("anchor", std::string()) != "grip"; G.gun = jvec3(gp.value("gun", json()), vec3(0)); G.scale = gp.value("scale", 1.0f); if (gp.contains("butt") && gp["butt"].size() >= 2) G.butt = vec3(gp["butt"][0].get<float>(), gp["butt"][1].get<float>(), 0);   // "mag" / "support": from the left socket (the magazine's centre with hold.left = magazine), "grip": from the rightGrip socket
         if (gp.contains("fingers")) for (auto it = gp["fingers"].begin(); it != gp["fingers"].end(); ++it) G.fingers.push_back({it.key(), jq(it.value())}); } }   // SW2
     d->dotCrosshair = j.value("crosshair", std::string()) == "dot";   // SW2
+    d->hipDot = j.value("hipDot", false); d->hipExact = j.value("hipExact", false);   // XB8
     d->category = j.value("category", std::string());   // UI11
     d->laterWar = j.value("laterWar", false); d->moveSpeed = j.value("moveSpeed", 1.0f); d->showArms = j.value("arms", true);
     if (j.contains("scope")) { d->hasScope = true; d->scopeMag = jkey(j, "scope").value("mag", 2.5f); d->reticle = jkey(j, "scope").value("reticle", ""); d->scopeEye = jvec3(j["scope"]["eye"]); d->scopeIrons = jkey(j, "scope").value("irons", false); d->scopeRelief = jkey(j, "scope").value("relief", 0.07f); }
@@ -762,6 +763,7 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
       vec3 aimDir = forward(eyeYaw + viewKickYaw, eyePitch + viewKickPitch);
       // dispersion: the class's hip / ADS cone (handling.json) x the stance (prone near laser-like, mounted near none)
       lastStance = stance; lastSpreadDeg = handling.cone(d.wclass, adsT > 0.85f && !(d.adsZoom > 0 && d.hipSpreadMul > 1), stance) * (adsT > 0.85f ? 1.0f : d.hipSpreadMul) * (s.att[ATT_MUZZLE] == 2 ? kBrakeSpread : 1.0f);   // BR2 muzzle brake: spread -30 %   // MG13d: a zoom-only gun with a wide hip cone (the minigun) aims with the plain class hip cone
+      if (d.hipExact && adsT <= 0.85f) lastSpreadDeg = 0;   // XB8: the crossbow at the hip goes exactly where the dot is
       float spread = radians(lastSpreadDeg);
       vec3 rt = glm::normalize(glm::cross(aimDir, vec3(0, 1, 0))), up = glm::cross(rt, aimDir);
       float a = wrand(s.seed) * 6.2831853f, r = std::sqrt(wrand(s.seed)) * std::tan(spread);
@@ -777,6 +779,8 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
       vec3 start = muzzle;
       Physics::Hit hb;
       if (Physics::castRayEx(eye, muzzle - eye, glm::length(muzzle - eye), hb)) start = eye + glm::normalize(muzzle - eye) * std::max(0.0f, hb.t - 0.01f);
+      float hipRange = -1;   // XB8: the range the hip shot is aimed at (the first soldier or surface on the view centre)
+      if (d.hipExact && adsT <= 0.85f) { extern float mpaiSoldierRay(vec3 a, vec3 dir, float maxT); const float ts = mpaiSoldierRay(eye, aimDir, glm::length(P - eye)); if (ts >= 0) P = eye + aimDir * ts; hipRange = glm::length(P - start); }
       vec3 dir = glm::normalize(P - start);
       if (glm::dot(dir, aimDir) < 0.5f) dir = aimDir;
       // Aimed fire: the round leaves the front sight tip F along the sight line V = normalize(F - R), where R is the
@@ -797,8 +801,9 @@ void App::stepWeapons(float dt, const ExploreInput& in) {
       }
       // declared zero: tilt up by the drop at the zero range
       float g = d.action == "launcher" ? 9.81f * d.rocketGrav : 9.81f;   // rockets: reduced effective gravity (sustained motor); MG4 grenades: full
-      float tz = d.zero / d.velocity, drop = d.blaster ? 0.0f : 0.5f * g * tz * tz;   // SW1: bolts do not drop
-      dir = glm::normalize(dir + vec3(0, drop / d.zero, 0));
+      const float zr = hipRange > 0.5f ? hipRange : d.zero;   // XB8: tilted for the drop at the range it is aimed at, not the zero
+      float tz = zr / d.velocity, drop = d.blaster ? 0.0f : 0.5f * g * tz * tz;   // SW1: bolts do not drop
+      dir = glm::normalize(dir + vec3(0, drop / zr, 0));
       int tracer = s.att[ATT_MUZZLE] == 1 ? 0 : d.tracerKind(s.shotIdx);   // BR2 suppressor: no tracers
       if (d.action == "launcher") {   // rocket: data-tuned blast through the shared destruction pipeline
         fireProjectile(start, dir, d.velocity, PROJ_ROCKET, d.rocketDmg, ~0ull, false, d.container);

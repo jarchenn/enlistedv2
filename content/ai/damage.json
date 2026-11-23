@@ -454,7 +454,7 @@
    "note": "MG12 per pellet (9 per shell; DMG1 pellets 26-30), shorter reach than the 870",
    "class": "shotgun"
   },
-    "modern_crossbow": {"near": 85, "far": 55, "falloffStart_m": 25, "falloffEnd_m": 70, "rpm": 30, "note": "XB1 crossbow bolt (95 m/s, 25 g): one heavy hit, slow to reload", "class": "rifle"},
+    "modern_crossbow": {"near": 85, "far": 55, "falloffStart_m": 25, "falloffEnd_m": 70, "rpm": 30, "note": "XB1 crossbow bolt (95 m/s, 25 g): one heavy hit, slow to reload. XB8: class bolt (XB1 named \"rifle\", which damage.json has no class for: the whole table failed to load and every gun ran on the built-in defaults). The user: 2x on knights; the AI archers' arrows are crossbow_bolt rounds and take this row, so they do 2x on knights too (to make the crossbow also 2x on archers: add \"archer\": 2.0)", "class": "bolt", "damageVs": {"knight": 2.0}},
     "modern_minigun": {"near": 34, "far": 22, "falloffStart_m": 40, "falloffEnd_m": 150, "rpm": 2400, "note": "MG13 minigun 7.62x51 (as the rifle-calibre MGs)", "class": "lmg"},
   "modern_smg9": {
    "near": 30,

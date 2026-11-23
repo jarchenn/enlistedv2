@@ -19,6 +19,7 @@
 #include "mpai.h"
 #include "crumb.h"
 #include "enemy_types.h"
+#include "damage_model.h"   // XB8 self-check
 #include "gore_api.h"
 // CH6: "attacks" joint names, in CharJoint order (as character.cpp kSemanticNames, private there)
 static const char* kSemanticNames[] = {"Hips", "Spine", "Spine1", "Spine2", "Neck", "Head", "LeftShoulder", "LeftArm", "LeftForeArm", "LeftHand", "RightShoulder", "RightArm", "RightForeArm", "RightHand",
@@ -112,7 +113,7 @@ const ZombieCfg& zcfg() {
         json sd = e.value("sounds", json::object()); t.sndAttack = sd.value("attack", ""); t.sndIdle = sd.value("idle", ""); t.sndStep = sd.value("step", "");
         t.sndContact = sd.value("contact", ""); t.sndDeath = sd.value("death", ""); t.sndLoop = sd.value("loop", "");
         t.sndMiss = sd.value("miss", ""); t.sndHurt = sd.value("hurt", ""); t.sndWeaponDrop = sd.value("weapon_drop", "");
-        t.sndWindup = sd.value("windup", ""); t.attackAtBlow = sd.value("attack_at", std::string()) == "blow"; t.sndMount = sd.value("mount", ""); t.sndGreet = sd.value("greet", ""); t.sndAlarm = sd.value("alarm", ""); t.sndChatter = sd.value("chatter", ""); t.sndReact = sd.value("react", ""); t.voicePitch = std::clamp(e.value("voice_pitch", 1.0f), 0.5f, 2.0f);
+        t.sndWindup = sd.value("windup", ""); t.attackAtBlow = sd.value("attack_at", std::string()) == "blow"; t.sndMount = sd.value("mount", ""); t.sndGreet = sd.value("greet", ""); t.sndAlarm = sd.value("alarm", ""); t.sndChatter = sd.value("chatter", ""); t.sndReact = sd.value("react", ""); t.cls = e.value("class", std::string());   // XB8 t.voicePitch = std::clamp(e.value("voice_pitch", 1.0f), 0.5f, 2.0f);
         json cl = e.value("clips", json::object());
         strs(cl, "walk", t.walkClips); strs(cl, "idle", t.idleClips); strs(cl, "attack", t.attackClips);
         t.runClip = cl.value("run", t.runClip); t.walkInjured = cl.value("walk_injured", t.walkInjured); t.runInjured = cl.value("run_injured", t.runInjured); t.climbClip = cl.value("climb", t.climbClip); strs(cl, "damage", t.damageClips); strs(cl, "death", t.deathClips);
@@ -1080,6 +1081,24 @@ int ar1SelfCheck() {
         && std::fabs(enemyType(sk).reach - 1.3f * enemyType(k7).reach) < 0.01f && enemyType(sk).attackClips.size() == 5 && stabs,
         "Spear Knight (KS): AI type 42, three builds picked at random (each run of three spawns wears all three), five stab clips only, 1.3x Knight 7's reach");
     chk(files, "Spear Knight (KS): every clip it names is in each of its three GLBs"); }
+  {   // XB8 (the user): the crossbow's bolt and the archers' arrows do 2x on knights (damage.json damageVs, zombie.json "class"), nothing else changes;
+      // the crossbow at the hip has no dispersion and a white dot; a hip shot lands at the dot (gravity flight as stepProjectiles)
+    const WeaponDamage& W = dmRow("modern_crossbow"); const int k5 = enemyTypeIndex("knight5"), a1 = enemyTypeIndex("archer1"), zb = enemyTypeIndex("zombie");
+    const bool mult = k5 >= 0 && a1 >= 0 && dmVsMult(W, k5) == 2.0f && dmVsMult(W, -1) == 1.0f && dmVsMult(W, a1) == 1.0f && dmVsMult(W, zb) == 1.0f && dmVsMult(dmRow("kar98k"), k5) == 1.0f;
+    int knights = 0, tagged = 0; for (auto& t : enemyTypes()) if (t.id.find("knight") != std::string::npos) { ++knights; tagged += t.cls == "knight"; }
+    std::vector<std::string> bolts; for (auto& f : fs::directory_iterator(contentDir() / "weapons")) if (f.path().extension() == ".json") { json w; try { w = json::parse(readTextFile(f.path())); } catch (...) {} if (w.is_object() && w.value("container", std::string()) == "crossbow_bolt") bolts.push_back(w.value("id", std::string())); }
+    bool arrows = true; for (int k : {a1, enemyTypeIndex("archer2")}) if (k >= 0) for (auto& sp : enemyType(k).attackSpecs) if (sp.shoot) arrows = arrows && sp.ammo == "crossbow_bolt";
+    json xw; try { xw = json::parse(readTextFile(contentDir() / "weapons" / "modern_crossbow.json")); } catch (...) {}
+    const float v0 = xw.value("velocity", 95.0f);
+    float worst = 0; std::string at;   // the hip shot as weapons.cpp aims it: from a muzzle 0.15 m right, 0.2 m low, 0.45 m ahead of the eye to the point at R on the view centre, tilted for the drop at R
+    for (float R : {10.0f, 50.0f}) { const vec3 eye(0, 1.6f, 0), aim(0, 0, -1), mz = eye + vec3(0.15f, -0.2f, -0.45f), Pt = eye + aim * R;
+      vec3 d = glm::normalize(Pt - mz); const float rr = glm::length(Pt - mz), tz = rr / v0; d = glm::normalize(d + vec3(0, 0.5f * 9.81f * tz * tz / rr, 0));
+      vec3 p = mz, v = d * v0; const float h = 1.0f / 120.0f;   // 60 Hz, two sub-steps
+      for (int i = 0; i < 2000 && p.z > Pt.z; ++i) { vec3 q = p + v * h; if (q.z <= Pt.z) { const float u = (p.z - Pt.z) / (p.z - q.z); p = p + (q - p) * u; break; } p = q; v.y -= 9.81f * h; }
+      const float miss = glm::length(vec2(p.x - Pt.x, p.y - Pt.y)); worst = std::max(worst, miss); at += (at.empty() ? "" : ", ") + std::to_string((int)std::lround(miss * 1000)) + " mm at " + std::to_string((int)R) + " m"; }   // (semi-implicit steps drop a little less than 0.5 g t^2: ~2 cm high at 50 m)
+    chk(mult && knights >= 14 && tagged == knights && bolts == std::vector<std::string>{"modern_crossbow"} && arrows && xw.value("hipDot", false) && xw.value("hipExact", false) && worst < 0.03f,
+        "crossbow (XB8): 2x on knights (knight5 x2; soldiers, zombies, archers and the Kar98k on knights x1), " + std::to_string(tagged) + " of " + std::to_string(knights) + " knight types tagged, the archers' arrows take the crossbow's row; hip: no dispersion, a dot, a hip shot lands within 3 cm of the dot (" + at + ")"); }
+  chk(damageTable().error.empty(), "content/ai/damage.json loads (" + (damageTable().error.empty() ? std::string("ok") : damageTable().error) + "): a bad row would put every gun on the built-in defaults");   // XB8
   { json xb; try { xb = json::parse(readTextFile(contentDir() / "weapons" / "modern_crossbow.json")); } catch (...) {}   // XB7
     std::string pd = xb.is_object() ? xb.value("projectileModel", json::object()).value("dir", std::string()) : std::string();
     chk(!pd.empty() && fs::exists(contentDir() / "weapons" / "models" / pd / "mesh.bin"), "the crossbow's bolt mesh (XB7): models/" + pd); }
