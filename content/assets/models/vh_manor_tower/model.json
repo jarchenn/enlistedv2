@@ -17,18 +17,23 @@
   },
   {
    "albedo": "albedo_2.jpg",
-   "name": "pr10_floor_boards_old",
+   "name": "vh1_stone",
    "normal": "normal_1.jpg"
   },
   {
    "albedo": "albedo_4.jpg",
-   "name": "pr10_beam_weathered",
+   "name": "pr10_floor_boards_old",
    "normal": "normal_3.jpg"
   },
   {
    "albedo": "albedo_6.jpg",
-   "name": "pr10_plaster_old",
+   "name": "pr10_beam_weathered",
    "normal": "normal_5.jpg"
+  },
+  {
+   "albedo": "albedo_2.jpg",
+   "name": "pr10_limestone_coursed",
+   "normal": "normal_1.jpg"
   }
  ],
  "parts": [
@@ -49,13 +54,39 @@
     0.0,
     -4.943089008331299
    ],
-   "count": 3558,
+   "count": 2457,
    "first": 0,
    "mat": 0,
    "metal": 0.0,
    "name": "ZBrushPolyMesh3D_1_defaultMat_0.002",
    "role": "body",
    "rough": 1.0,
+   "textured": true
+  },
+  {
+   "base": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bmax": [
+    4.5822601318359375,
+    9.0179443359375,
+    4.943089008331299
+   ],
+   "bmin": [
+    -4.5822601318359375,
+    0.0,
+    -4.943089008331299
+   ],
+   "count": 1101,
+   "first": 2457,
+   "mat": 1,
+   "metal": 0.0,
+   "name": "ZBrushPolyMesh3D_1_defaultMat_0.002",
+   "role": "body",
+   "rough": 0.8999999761581421,
    "textured": true
   },
   {
@@ -77,7 +108,7 @@
    ],
    "count": 36,
    "first": 3558,
-   "mat": 1,
+   "mat": 2,
    "metal": 0.0,
    "name": "ZBrushPolyMesh3D_1_defaultMat_0.002",
    "role": "body",
@@ -103,7 +134,7 @@
    ],
    "count": 36,
    "first": 3594,
-   "mat": 2,
+   "mat": 3,
    "metal": 0.0,
    "name": "ZBrushPolyMesh3D_1_defaultMat_0.002",
    "role": "body",
@@ -129,7 +160,7 @@
    ],
    "count": 864,
    "first": 3630,
-   "mat": 3,
+   "mat": 4,
    "metal": 0.0,
    "name": "ZBrushPolyMesh3D_1_defaultMat_0.002",
    "role": "body",
@@ -147,5 +178,5 @@
  "source": "vh_manor_tower.glb",
  "textures": {},
  "triangles": 1498,
- "vertices": 2251
+ "vertices": 2432
 }
