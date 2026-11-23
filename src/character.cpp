@@ -196,6 +196,7 @@ bool CharModel::load(const fs::path& path, std::string& err, float height, bool 
     if (pbr.contains("baseColorTexture")) mt.alb = tex(pbr["baseColorTexture"]["index"].get<int>(), true);
     if (pbr.contains("metallicRoughnessTexture")) mt.mr = tex(pbr["metallicRoughnessTexture"]["index"].get<int>(), false);
     if ((wantNormals || J.value("asset", json::object()).value("extras", json::object()).value("nmkNormals", false)) && m.contains("normalTexture")) mt.n = tex(m["normalTexture"]["index"].get<int>(), false, 2);   // FSB1: a soldier skin baked with its normal maps (bake_gunbody.py --skin SKIN_KEEP_NORMALS)
+    mt.cutout = J.value("asset", json::object()).value("extras", json::object()).value("nmkCutout", false) && m.value("alphaMode", std::string("OPAQUE")) == "MASK";   // BC2: alpha-tested hair cards and lashes, for a file that asks (asset.extras.nmkCutout)
     gpu.mats.push_back(mt);
   }
   for (size_t ni = 0; ni < nn; ++ni) {
@@ -238,7 +239,7 @@ bool CharModel::load(const fs::path& path, std::string& err, float height, bool 
         const json& m = J["materials"][mi]; const json pbr = m.value("pbrMetallicRoughness", json::object());
         if (pbr.contains("baseColorFactor")) { auto& b = pbr["baseColorFactor"]; part.base = vec4(b[0], b[1], b[2], b[3]); }
         part.metal = pbr.value("metallicFactor", 1.0f); part.rough = pbr.value("roughnessFactor", 1.0f);
-        part.textured = gpu.mats[mi].alb != 0;
+        part.textured = gpu.mats[mi].alb != 0; part.cutout = gpu.mats[mi].cutout;
         if (!gpu.mats[mi].mr) { part.metal = std::min(part.metal, 0.05f); part.rough = std::max(part.rough, 0.75f); }   // cloth default
         if (auto ef = m.find("emissiveFactor"); ef != m.end() && ef->is_array() && ef->size() == 3) {   // RB6: a glowing part (the KR-714's eyes)
           const vec3 e((*ef)[0].get<float>(), (*ef)[1].get<float>(), (*ef)[2].get<float>());
