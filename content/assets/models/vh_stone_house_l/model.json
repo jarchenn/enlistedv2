@@ -17,23 +17,17 @@
   },
   {
    "albedo": "albedo_2.jpg",
-   "name": "vh1_stone",
+   "name": "pr10_floor_boards_old",
    "normal": "normal_1.jpg"
   },
   {
    "albedo": "albedo_4.jpg",
-   "name": "pr10_floor_boards_old",
+   "name": "pr10_beam_weathered",
    "normal": "normal_3.jpg"
   },
   {
-   "albedo": "albedo_6.jpg",
-   "name": "pr10_beam_weathered",
-   "normal": "normal_5.jpg"
-  },
-  {
-   "albedo": "albedo_2.jpg",
-   "name": "pr10_limestone_dressed",
-   "normal": "normal_1.jpg"
+   "albedo": "albedo_5.jpg",
+   "name": "pr10_vh_stone_house_l_stone"
   }
  ],
  "parts": [
@@ -54,39 +48,13 @@
     0.0,
     -3.365767240524292
    ],
-   "count": 2757,
+   "count": 6771,
    "first": 0,
    "mat": 0,
    "metal": 0.0,
    "name": "maison7_Mat_0.002",
    "role": "body",
-   "rough": 0.20000000298023224,
-   "textured": true
-  },
-  {
-   "base": [
-    1.0,
-    1.0,
-    1.0,
-    1.0
-   ],
-   "bmax": [
-    3.579439640045166,
-    7.17826509475708,
-    3.1509478092193604
-   ],
-   "bmin": [
-    -3.8787620067596436,
-    0.0,
-    -3.106417417526245
-   ],
-   "count": 825,
-   "first": 2757,
-   "mat": 1,
-   "metal": 0.0,
-   "name": "maison7_Mat_0.002",
-   "role": "body",
-   "rough": 0.8999999761581421,
+   "rough": 0.9200000166893005,
    "textured": true
   },
   {
@@ -107,8 +75,8 @@
     -2.960899829864502
    ],
    "count": 72,
-   "first": 3582,
-   "mat": 2,
+   "first": 6771,
+   "mat": 1,
    "metal": 0.0,
    "name": "maison7_Mat_0.002",
    "role": "body",
@@ -133,8 +101,8 @@
     -2.960899829864502
    ],
    "count": 72,
-   "first": 3654,
-   "mat": 3,
+   "first": 6843,
+   "mat": 2,
    "metal": 0.0,
    "name": "maison7_Mat_0.002",
    "role": "body",
@@ -159,8 +127,8 @@
     -2.960899829864502
    ],
    "count": 1296,
-   "first": 3726,
-   "mat": 4,
+   "first": 6915,
+   "mat": 3,
    "metal": 0.0,
    "name": "maison7_Mat_0.002",
    "role": "body",
@@ -177,6 +145,6 @@
  "scale": 1.0,
  "source": "vh_stone_house_l.glb",
  "textures": {},
- "triangles": 1674,
- "vertices": 2608
+ "triangles": 2737,
+ "vertices": 3766
 }

@@ -20,12 +20,23 @@ import pr8_openings
 from pr10_assets import BLENDER, HERE, ROOT, run
 
 S = 0.29   # metres per source unit
-# VH1b (the user: "the bricks should be less large boulder style and smaller"; "make the inner wall also stone just like the
-# exterior"): each house's stone (texture set, its tile in metres); the outside's plain stone faces re-textured with it
-# (pr6_split retex) unless "keep" (the town house: rendered walls), the inner walls lined with it
-STONE = {"vh_cottage_shutters": ("limestone_coursed", 3.0), "vh_cottage_tall": ("limestone_coursed", 3.0), "vh_longhouse_blue": ("limestone_coursed", 3.0),
-         "vh_manor_tower": ("limestone_coursed", 3.0), "vh_stone_house_l": ("limestone_dressed", 3.0), "vh_townhouse": ("limestone_coursed", 3.0, "keep"),
-         "vh_timber_house": ("bricks_075a", 2.0), "vh_barn_cottage": ("limestone_dressed", 3.0)}
+# VH1c (the user: "undo that change, it looks worse now. the previous exterior stone should be what it looks like both exterior
+# and interior. the roofs should not be reflective. Some of the roofs should use the bricklike texture but some should use this
+# strawlike one. roofs also need to be thicker and not just a flat plane"):
+#  * the outside keeps the model's own textures (VH1b's re-texture undone), made matte (roughness 0.92, no metal);
+#  * the inner walls are lined with each house's own outside stone: a plain square of its wall cut from a flat render of the
+#    original (E:/nmk/village/py/patch3.py -> <VH_TEX>/<asset>_stone/color.jpg, mirrored 2 x 2; its tile in stone_tiles.json);
+#  * the roofs are solidified (0.12 m tiles, 0.35 m thatch); four houses thatched (ambientCG ThatchedRoof001B / 002B, CC0).
+VH_TEX = os.environ.get("VH1_TEX", "E:/nmk/village/tex")
+ROOF = {"vh_cottage_shutters": ("thatch_001b", 0.35), "vh_cottage_tall": ("thatch_002b", 0.35), "vh_longhouse_blue": ("thatch_002b", 0.35),
+        "vh_barn_cottage": ("thatch_001b", 0.35), "vh_manor_tower": (None, 0.12), "vh_stone_house_l": (None, 0.12), "vh_townhouse": (None, 0.12),
+        "vh_timber_house": (None, 0.12)}
+THATCH_TILE = 2.0   # m
+
+
+def stone(bid):
+    tiles = json.load(open(os.path.join(VH_TEX, "stone_tiles.json")))
+    return os.path.join(VH_TEX, bid + "_stone"), tiles[bid]["tile_m"]
 CREDIT = ("House Village", "remib74", "CC-BY-4.0", "https://sketchfab.com/3d-models/house-village-a5d6dae1ff424adca8978a143769ab2d")
 T = 0.5    # wall collider thickness inward (source units, 15 cm)
 U = 1 / S  # source units per metre
@@ -236,7 +247,8 @@ def lining(bid, doors, holes):
         for w in ([x0, x1, y0, y0 + t], [x0, x1, y1 - t, y1], [x0, x0 + t, y0, y1], [x1 - t, x1, y0, y1]):
             bx = [([w[0], w[2], z0], [w[1], w[3], z1])]
             for c in cuts: bx = [q for b in bx for q in pr8_openings.subtract(b, c)]
-            out += [{"box": [lo[0], hi[0], lo[1], hi[1], lo[2], hi[2]], "tex": STONE[bid][0], "tile": STONE[bid][1] / S} for lo, hi in bx]
+            st, tm = stone(bid)
+            out += [{"box": [lo[0], hi[0], lo[1], hi[1], lo[2], hi[2]], "tex": st, "tile": tm / S} for lo, hi in bx]
     return out
 
 
@@ -253,8 +265,9 @@ def convert(src_dir, glbs):
         piece = {"id": bid, "objects": None, "boxes": walls, "marks": marks, "cut_out": cuts,
                  "add_boxes": [{**b, "tex": os.path.join(ROOT, "content", "textures", b["tex"])} for b in lining(bid, doors, holes)],
                  "scale": S, "yaw": 0}
-        if len(STONE[bid]) < 3: piece["retex"] = {"tex": os.path.join(ROOT, "content", "textures", STONE[bid][0]), "tile": STONE[bid][1] / S}
-        if bid in ("vh_barn_cottage", "vh_timber_house"): piece["retex"]["feat"] = 0.35   # painted wall damage (dark breaks) goes too; their windows are cut or large
+        rt, th = ROOF[bid]
+        piece["matte"] = 0.92
+        piece["roof"] = {"thick": th / S, "min_nz": 0.3, "min_z": 4.0, **({"tex": os.path.join(VH_TEX, rt), "tile": THATCH_TILE / S} if rt else {})}
         run({"src": os.path.join(src_dir, B["key"] + ".glb"), "out": glbs, "pieces": [piece]}, glbs, bid)
 
 
