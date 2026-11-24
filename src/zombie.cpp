@@ -125,7 +125,8 @@ const ZombieCfg& zcfg() {
         c.types.push_back(t);
       }
       for (auto& a : j.value("assorted", json::array())) if (a.is_array() && a.size() == 2) c.assorted.push_back({a[0].get<std::string>(), std::max(0.0f, a[1].get<float>())});   // AK1
-      for (auto& [k, v] : j.value("death_dirs", json::object()).items()) if (v.is_string()) c.deathDirs[k] = v.get<std::string>();   // KD1
+      { const json dd = j.value("death_dirs", json::object());   // RL2: kept in a named json: items() over the temporary j.value() returned dangled, and no tag ever loaded
+        for (auto& [k, v] : dd.items()) if (v.is_string()) c.deathDirs[k] = v.get<std::string>(); }   // KD1
       json p = j.value("pack", json::object());
       c.packs = p.value("on", c.packs); c.packMin = p.value("min_zombies", c.packMin); c.packSize = std::clamp(p.value("size", c.packSize), 2, 16);
       c.join = p.value("join_m", c.join); c.breakOff = p.value("break_off_m", c.breakOff); c.spacing = p.value("slot_spacing_m", c.spacing);
@@ -1217,7 +1218,7 @@ int ar1SelfCheck() {
       for (auto& c : need) ok = ok && names.count(c); ok = ok && arrow && str; }
     chk(ok && (int)AiType::ImperialArcher == 58 && kAiTypeCount > 58 && !Game::soldierBrain(AiType::ImperialArcher) && std::string(aiTypeName(AiType::ImperialArcher)) == "Imperial Archer", "Imperial Archer (IA1): AI type 58, Archer 1's health, shot and deaths at the Imperial Soldiers' size, not in Assorted, every clip it names in its GLB (" + std::to_string(names.size()) + " clips), Arrow and BowString joints"); }
   {   // RL1: AI type 59 Roman Legionary: melee, not in Assorted; with the local type, Knight 1's class, health and sounds, a short gladius reach,
-    // strikes on the right hand at each clip's blow, every clip it names that the model has (the run, stagger and deaths may come later)
+    // strikes on the right hand at each clip's blow, every clip it names in its GLB (RL2: the re-export's run, staggers and deaths)
     bool ok = (int)AiType::RomanLegionary == 59 && kAiTypeCount > 59 && !Game::soldierBrain(AiType::RomanLegionary) && std::string(aiTypeName(AiType::RomanLegionary)) == "Roman Legionary"; std::string have = "local type absent: Knight 1";
     for (auto& [m, w] : zcfg().assorted) ok = ok && m != "roman_legionary";
     const int k = enemyTypeIndex("roman_legionary");   // (Knight 1 itself may be overridden by a local file: the numbers are checked as such)
@@ -1226,10 +1227,13 @@ int ar1SelfCheck() {
       for (auto& x : t.attackSpecs) ok = ok && x.bone == "mixamorig:RightHand" && x.hasAt && x.swing > 0.3f && x.swing < 0.7f && glm::length(x.at) > 40.0f && glm::length(x.at) < 70.0f;
       std::ifstream f(contentDir() / "characters" / (t.model + ".glb"), std::ios::binary); std::string g(20, 0); f.read(g.data(), 20); uint32_t nn = 0;
       if (f.gcount() == 20) { std::memcpy(&nn, g.data() + 12, 4); std::string js(nn, 0); f.read(js.data(), nn); json J; try { J = json::parse(js); } catch (...) {} for (auto& x : J.value("animations", json::array())) names.insert(x.value("name", std::string())); }
-      std::vector<std::string> need = t.walkClips; need.push_back(t.runClip); for (auto* v : {&t.idleClips, &t.attackClips}) need.insert(need.end(), v->begin(), v->end());
+      std::vector<std::string> need = t.walkClips; need.push_back(t.runClip); for (auto* v : {&t.idleClips, &t.attackClips, &t.damageClips, &t.deathClips}) need.insert(need.end(), v->begin(), v->end());
       for (auto& c : need) ok = ok && names.count(c);
-      int later = 0; for (auto* v : {&t.damageClips, &t.deathClips}) for (auto& c : *v) later += !names.count(c);
-      have = "local type: " + std::to_string(names.size()) + " clips, " + std::to_string(later) + " of its hit / death clips still to come (held pose / no flinch until then)"; }
+      // the re-export: its own run at the knights' pace, two staggers, a death for a hit from the front and one from behind (death_dirs)
+      const auto& dd = zcfg().deathDirs; auto tag = [&](const char* c) { auto it = dd.find(c); return it == dd.end() ? std::string() : it->second; };
+      ok = ok && t.runClip == "run" && t.walkClips.size() == 1 && t.walkClips[0] == "advance" && t.damageClips == std::vector<std::string>{"stagger", "stagger_2"}
+              && t.deathClips == std::vector<std::string>{"death_front", "death_back"} && tag("death_front") == "back" && tag("death_back") == "front";
+      have = "local type: " + std::to_string(names.size()) + " clips, every one it names (walk advance, run run, staggers, death_front for a hit from behind, death_back from the front)"; }
     chk(ok, "Roman Legionary (RL1): AI type 59, melee, not in Assorted; " + have); }
   {   // GR1: the fire curve's overlapping shots add, each x its weight; the rod is the furthest back among them; past the end a shot is off the curve
     WeaponDef d; d.fireCurveFps = 10; d.fireCurve = {{}, {}, {}}; d.fireCurve[1][6] = 2; d.fireCurve[1][9] = 0.08f;   // muzzle up 2 deg and the rod back at 0.1 s
