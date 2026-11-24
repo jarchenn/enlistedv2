@@ -1234,6 +1234,7 @@ int App::run(int argc, char** argv) {
     else if (a == "--check-ar1") { extern int ar1SelfCheck(); return ar1SelfCheck(); }   // AR1: Archer 1's ranged attack data and the arrow's aim (zombie.cpp)
     else if (a == "--check-fxev") { extern int fxDataSelfCheck(); return fxDataSelfCheck(); }   // Battle Foundry 9.2 EVENTS / BRIGHTNESS / SCALE (fxdata.cpp, fx.cpp)
     else if (a == "--check-can1") { extern int cannonSelfCheck(); return cannonSelfCheck(); }
+    else if (a == "--check-wallnormal") { extern int wallNormalSelfCheck(); return wallNormalSelfCheck(); }   // WN1: a city wall bay's ray normals (check_wn1.cpp)
     else if (a == "--check-tre1") { extern int trebuchetSelfCheck(); return trebuchetSelfCheck(); }   // TRE1: the trebuchet station (station.cpp)   // CAN1: the cannon stations' assets, ball flight, roll-back and push (station.cpp)
     else if (a == "--check-dynres") { extern int dynResSelfCheck(); return dynResSelfCheck(); }   // CP 5.1: the control law on synthetic timings
     else if (a == "--texture-placeholders" && k + 1 < argc) { std::vector<std::string> v; std::string l = argv[++k]; for (size_t b = 0, e; b <= l.size(); b = e + 1) { e = l.find(',', b); if (e == std::string::npos) e = l.size(); if (e > b) v.push_back(l.substr(b, e - b)); } return tex::writePlaceholders(k + 1 < argc ? fs::path(argv[k + 1]) : contentDir() / "textures", v); }

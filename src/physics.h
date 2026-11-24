@@ -44,6 +44,10 @@ public:
   struct Overlap { uint64_t ud = 0; uint32_t body = 0; vec3 pos{0}; float depth = 0; };
   static int boxOverlaps(vec3 center, vec3 halfExtents, quat rot, Overlap* out, int maxOut, uint64_t ignoreUd = ~0ull, bool ignoreTerrain = true);
   static ShapePtr buildCompound(const std::vector<ShapePtr>& shapes);
+  // WN1 probe (--check-wallnormal): castRayEx's hit and normal, plus the struck leaf shape: its type (1 box), its half
+  // extents (a box), its world rotation and centre, and the hit point in its own frame
+  struct Probe { bool hit = false; vec3 pos{0}, normal{0}; int leafType = 0; vec3 half{0}, leafCentre{0}, local{0}; quat leafRot{1, 0, 0, 0}; uint64_t ud = 0; };
+  static Probe probeRay(vec3 o, vec3 d, float maxDist);
   static void setShape(uint32_t body, const ShapePtr& s);
   // terrain heightfields: base chunks and per-tile high-res patches (terrain_chunks.cpp); FLT_MAX samples are holes
   static uint32_t addHeightPatch(const std::vector<float>& h, int n, vec3 origin, float spacing, uint64_t ud);

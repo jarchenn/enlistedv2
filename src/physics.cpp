@@ -299,6 +299,22 @@ bool Physics::castRay(vec3 o, vec3 d, float maxDist, float& t, uint64_t& ud) {
   return true;
 }
 
+Physics::Probe Physics::probeRay(vec3 o, vec3 d, float maxDist) {
+  Probe P; vec3 dn = glm::normalize(d); RRayCast ray{jr(o), jv(dn * maxDist)}; RayCastResult hit;
+  if (!W->sys->GetNarrowPhaseQuery().CastRay(ray, hit)) return P;
+  P.hit = true; P.pos = o + dn * (hit.mFraction * maxDist);
+  BodyLockRead lock(W->sys->GetBodyLockInterface(), hit.mBodyID); if (!lock.Succeeded()) return P;
+  const Body& b = lock.GetBody(); P.ud = b.GetUserData();
+  P.normal = gv(b.GetWorldSpaceSurfaceNormal(hit.mSubShapeID2, ray.GetPointOnRay(hit.mFraction)));
+  SubShapeID rem; TransformedShape ts = b.GetShape()->GetSubShapeTransformedShape(hit.mSubShapeID2, b.GetCenterOfMassPosition(), b.GetRotation(), Vec3::sReplicate(1.0f), rem);
+  const Shape* leaf = ts.mShape.GetPtr();
+  if (leaf && leaf->GetSubType() == EShapeSubType::Box) { P.leafType = 1; P.half = gv(static_cast<const BoxShape*>(leaf)->GetHalfExtent()); }
+  P.leafRot = quat(ts.mShapeRotation.GetW(), ts.mShapeRotation.GetX(), ts.mShapeRotation.GetY(), ts.mShapeRotation.GetZ());
+  P.leafCentre = vec3((float)ts.mShapePositionCOM.GetX(), (float)ts.mShapePositionCOM.GetY(), (float)ts.mShapePositionCOM.GetZ());
+  P.local = glm::inverse(P.leafRot) * (P.pos - P.leafCentre);
+  return P;
+}
+
 bool Physics::castRayEx(vec3 o, vec3 d, float maxDist, Hit& out, uint64_t ignoreUd) {
   if (gLoadingDepth) loadingTick();
   vec3 dn = glm::normalize(d);
