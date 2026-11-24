@@ -464,7 +464,7 @@ public:
   vec3 trebuchetStone(const Instance& i, const InstanceRT& r) const;   // TRE1: the stone's world centre as drawn now
   vec3 trebuchetRelease(const Instance& i, const InstanceRT& r, vec3& dir, float& speed) const;   // TRE2: the release point, launch direction and speed as aimed
   bool arcHidden(const Instance& i, const InstanceRT& r, vec3 eye, vec3 p) const;   // TRE3: the line's point behind the gun or the world
-  std::vector<vec3> shotArc(vec3 from, vec3 v, float grav, uint64_t ignore, vec3* hitPos, float* tOut = nullptr, uint64_t* hitUd = nullptr) const;   // TRE2: an aimed shot's flight to its first hit (the trajectory line)
+  std::vector<vec3> shotArc(vec3 from, vec3 v, float grav, uint64_t ignore, vec3* hitPos, float* tOut = nullptr, uint64_t* hitUd = nullptr, vec3* hitN = nullptr) const;   // TRE2: an aimed shot's flight to its first hit (the trajectory line)
   void stationShoot(uint64_t id, int owner);       // one round from a station (local gunner, or a LAN client's on the host)
   void stationFinishReload(StationRT& s, const StationDef& d);
   void resetCrate(const Instance& i);

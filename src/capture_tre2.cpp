@@ -4,14 +4,19 @@
 // distance: the city wall section (cw_wall, 11.3 m) where the content has it, else the two-storey farmhouse. The elevation is
 // solved so the line ends on the wall's face (the lowest such elevation, near mid-height); then one real shot is fired and
 // its impact logged against the line's end. Clear weather at 12:30.
-// Out: selftest_out/tre2_<gun>_<distance>m[_left|_right].png; the log: [tre2] lines.
+// TRE5: one more case, a second wall section 40 m out in front of the cannon's 150 m wall: the line must end on the nearer one;
+// each case also gets a still from beside and above (<case>_side.png) where the circle on the struck face shows.
+// Out: selftest_out/tre2_<gun>_<distance>m[_left|_right][_side].png; the log: [tre2] lines.
 #include "selftest.h"
 
 namespace {
-struct Case { const char* asset; float dist; int side; const char* name; uint64_t gun = 0, wall = 0; float elev = 0, faceZ = 0, wallH = 0; vec3 end{0}; float tof = 0; bool onWall = false; };
+struct Case { const char* asset; float dist; int side; const char* name; float obstacle = 0; uint64_t gun = 0, wall = 0, near = 0; float elev = 0, faceZ = 0, wallH = 0; vec3 end{0}; float tof = 0; bool onWall = false; };
 Case kCases[] = {{"gun_cannon18", 60, 0, "cannon18_60m"}, {"gun_cannon18", 150, 0, "cannon18_150m"}, {"gun_cannon_mortar", 60, 0, "mortar_60m"}, {"gun_cannon_mortar", 150, 0, "mortar_150m"},
-                 {"gun_trebuchet", 100, 0, "trebuchet_100m_right"}, {"gun_trebuchet", 200, 1, "trebuchet_200m_left"}};
+                 {"gun_trebuchet", 100, 0, "trebuchet_100m_right"}, {"gun_trebuchet", 200, 1, "trebuchet_200m_left"}, {"gun_cannon18", 150, 0, "cannon18_150m_wall40m_in_front", 40}};
 const int kN = sizeof kCases / sizeof kCases[0];
+}
+extern bool gVh8CamOn; extern vec3 gVh8CamEye, gVh8CamAt;   // VH8 capture's outside camera (app.cpp)
+namespace {
 int phase = 0, crewed = -1, sub = 0; float t = 0; bool shot = false; float impT0 = 0; size_t nProj = 0;
 fs::path out(const std::string& n) { fs::path p = exeDir() / "selftest_out"; std::error_code ec; fs::create_directories(p, ec); return p / ("tre2_" + n + ".png"); }
 // the gun's predicted shot for its current aim: end point, flight time, what it struck
@@ -39,6 +44,7 @@ bool captureTre2SelfTest(App& a, float dt) {
       c.gun = a.placeInstance(a.lib.find(c.asset), vec3(x, a.terrain.height(x, 0), 0), 0);
       const float wz = c.dist - wa->bmin.z;   // the wall's near face at the distance (its depth behind)
       c.wall = a.placeInstance(wa, vec3(x, a.terrain.height(x, wz), wz), 0); c.faceZ = c.dist; c.wallH = wa->bmax.y;
+      if (c.obstacle > 0) { const float oz = c.obstacle - wa->bmin.z; c.near = a.placeInstance(wa, vec3(x, a.terrain.height(x, oz), oz), 0); }   // TRE5: something nearer on the same line
       if (!c.gun || !c.wall) { logf("[tre2] could not place case %s", c.name); return done(); }
     }
     logf("[tre2] wall: %s (%.1f m high, face %.1f m deep from its origin)", wid, wa->bmax.y, -wa->bmin.z);
@@ -64,20 +70,26 @@ bool captureTre2SelfTest(App& a, float dt) {
     float best = 1e9f; c.onWall = false;
     for (float el = d.elevMin; el <= d.elevMax + 1e-3f; el += 0.1f) {
       s->elev = s->elevT = el; float tof; uint64_t ud; vec3 e = predict(a, c, tof, ud);
-      const bool face = (ud >> 16) == c.wall && std::fabs(e.z - c.faceZ) < 1.5f, wallHit = (ud >> 16) == c.wall;
+      const bool face = c.near ? (ud >> 16) == c.near : ((ud >> 16) == c.wall && std::fabs(e.z - c.faceZ) < 1.5f), wallHit = (ud >> 16) == c.wall;   // TRE5: with a nearer wall the far one cannot be reached at a direct-fire aim: the line must end on the near face
       const float score = face ? std::fabs(e.y - a.terrain.height(e.x, e.z) - c.wallH * 0.5f) : 1e6f + std::fabs(e.z - c.faceZ) - (wallHit ? 1e5f : 0);
       if (score < best - 0.05f) { best = score; c.elev = el; }
       if (face && score < 1.0f) break;   // near mid-height: the low (direct) solution
     }
     s->elev = s->elevT = c.elev; uint64_t ud; c.end = predict(a, c, c.tof, ud);
-    c.onWall = (ud >> 16) == c.wall;
+    c.onWall = (ud >> 16) == (c.near ? c.near : c.wall);
+    if (c.near) logf("[tre2] %s: a wall section %.0f m out stands in front of the %.0f m wall: the line ends on %s", c.name, c.obstacle, c.dist, (ud >> 16) == c.near ? "the NEARER wall (as it must)" : (ud >> 16) == c.wall ? "the far wall (WRONG: it passed through the near one)" : "neither wall");
     const float hy = c.end.y - a.terrain.height(c.end.x, c.end.z);
     logf("[tre2] %s: distance %.0f m, elevation %+.1f deg%s: the line ends %s (%.1f, %.1f, %.1f), flight %.2f s", c.name, c.dist, c.elev, d.kind == "trebuchet" ? " (speed setting)" : "",
          c.onWall ? ("on the wall at " + std::to_string(hy).substr(0, 4) + " m up, " + std::to_string(c.end.z - c.faceZ).substr(0, 4) + " m from its face").c_str() : (c.end.z < c.faceZ ? "on the ground short of the wall" : "past the wall"),
          c.end.x, c.end.y, c.end.z, c.tof);
   }
   s->elev = s->elevT = c.elev; s->yawT = 0;
-  if (sub == 0 && t > 1.6f) { a.uiShot = out(c.name); sub = 1; }
+  if (sub == 0 && t > 1.6f) { a.uiShot = out(c.name); sub = 10; }
+  else if (sub == 10 && t > 2.0f) {   // TRE5: from beside and above, looking at the struck face (the circle on it)
+    const float sx = std::max(10.0f, glm::length(vec2(c.end.x - in->pos.x, c.end.z - in->pos.z)) * 0.18f);
+    gVh8CamEye = vec3(c.end.x + sx, c.end.y + sx * 0.35f, c.end.z - sx * 1.1f); gVh8CamAt = c.end; gVh8CamOn = true; sub = 11; }
+  else if (sub == 11 && t > 2.6f) { a.uiShot = out(std::string(c.name) + "_side"); sub = 12; }
+  else if (sub == 12 && t > 3.0f) { gVh8CamOn = false; sub = 1; t = 2.2f; }
   else if (sub == 1 && t > 2.2f) {   // the real shot: the gun's own fire path (the trebuchet's swing and release; a cannon's round at once)
     impT0 = a.lastImpact.time; nProj = a.projectiles.size();
     if (d.kind == "trebuchet") { s->treb = 1; s->trebT = 0; s->trebMine = true; } else a.stationShoot(c.gun, -1);

@@ -621,16 +621,16 @@ bool App::arcHidden(const Instance& i, const InstanceRT& r, vec3 eye, vec3 p) co
 }
 // TRE2: the aimed shot's path as stepProjectiles flies it (Euler at 120 Hz, g x the shot's gravity factor, no drag), from
 // `from` until the first thing it would strike (the gun itself ignored), the ground, or the projectile's 9 s life
-std::vector<vec3> App::shotArc(vec3 from, vec3 v, float grav, uint64_t ignore, vec3* hitPos, float* tOut, uint64_t* hitUd) const {
+std::vector<vec3> App::shotArc(vec3 from, vec3 v, float grav, uint64_t ignore, vec3* hitPos, float* tOut, uint64_t* hitUd, vec3* hitN) const {
   std::vector<vec3> pts{from}; vec3 p = from; const float h = 1.0f / 120;
   for (float t = 0; t < 9.0f; t += h) {
     const vec3 seg = v * h; Physics::Hit hit;
-    if (Physics::castRayEx(p, seg, glm::length(seg), hit, ignore)) { pts.push_back(hit.pos); if (hitPos) *hitPos = hit.pos; if (tOut) *tOut = t + h * hit.t / std::max(1e-6f, glm::length(seg)); if (hitUd) *hitUd = hit.ud; return pts; }
+    if (Physics::castRayEx(p, seg, glm::length(seg), hit, ignore)) { pts.push_back(hit.pos); if (hitPos) *hitPos = hit.pos; if (tOut) *tOut = t + h * hit.t / std::max(1e-6f, glm::length(seg)); if (hitUd) *hitUd = hit.ud; if (hitN) *hitN = glm::length(hit.normal) > 0.5f ? glm::normalize(hit.normal) : vec3(0, 1, 0); return pts; }
     p += seg; v.y -= 9.81f * grav * h;
     if (((int)std::lround(t / h)) % 6 == 0) pts.push_back(p);   // a point every 50 ms is smooth on screen
     if (p.y < -100) break;
   }
-  pts.push_back(p); if (hitPos) *hitPos = p; if (tOut) *tOut = 9.0f; if (hitUd) *hitUd = 0; return pts;
+  pts.push_back(p); if (hitPos) *hitPos = p; if (tOut) *tOut = 9.0f; if (hitUd) *hitUd = 0; if (hitN) *hitN = vec3(0, 1, 0); return pts;
 }
 void App::trebuchetStep(float dt) {
   for (auto& i : doc.instances) {
@@ -786,26 +786,38 @@ void App::drawCombatUI() {
   vec3 ie, ifr; float ifov;
   bool irons = d.kind == "mg42" && mg42MountSight(*this, ie, ifr, ifov);   // aimed over the gun's own sights, as handheld: no dot
   if (s->pos2 == ST_GUNNER && (mgKind(d.kind) || cannonKind(d.kind) || trebKind(d.kind)) && !irons) dl->AddCircleFilled(c, 2.5f, IM_COL32(240, 240, 230, 200));   // CAN1: the cannon's aim: the small white dot
-  if (s->pos2 == ST_GUNNER && (trebKind(d.kind) || cannonKind(d.kind))) if (Instance* ti = doc.find(occupied)) {   // TRE2: the aimed shot's arc to where it lands, a ring there
-    vec3 from, dir, land; float sp; std::vector<vec3> arc; float skip = 0;
-    if (trebKind(d.kind)) { from = trebuchetRelease(*ti, r, dir, sp); arc = shotArc(from, dir * sp, 1.0f, coreUD(ti->id), &land); }
+  if (s->pos2 == ST_GUNNER && (trebKind(d.kind) || cannonKind(d.kind))) if (Instance* ti = doc.find(occupied)) {   // TRE2 / TRE5: the aimed shot's arc to the first thing it strikes, a circle on that surface
+    vec3 from, dir, land, nrm(0, 1, 0); float sp; std::vector<vec3> arc; float skip = 0;
+    if (trebKind(d.kind)) { from = trebuchetRelease(*ti, r, dir, sp); arc = shotArc(from, dir * sp, 1.0f, coreUD(ti->id), &land, nullptr, nullptr, &nrm); }
     else { mat4 b0, y0, e0, rc0; stationParts(*ti, r, b0, y0, e0, rc0); const vec3 bore = d.muzzle - d.elevPivot; vec3 md; const vec3 mz = stationMuzzle(*ti, r, md);
       from = vec3(e0 * vec4(bore.x, bore.y, 0, 1)); dir = glm::normalize(vec3(e0 * vec4(0, 0, 1, 0))); sp = d.heVelocity; skip = glm::length(mz - from) + 2.0f;   // as stationShoot: from the trunnion plane, drawn from 2 m past the muzzle (TRE4: edge-on from the muzzle eye before that)
-      arc = shotArc(from, dir * sp, d.heGravity, coreUD(ti->id), &land); }
+      arc = shotArc(from, dir * sp, d.heGravity, coreUD(ti->id), &land, nullptr, nullptr, &nrm); }
     const float rng = glm::length(vec2(land.x - from.x, land.z - from.z));
-    char e[112]; std::snprintf(e, sizeof e, trebKind(d.kind) ? "Range %.0f m  (%.0f m/s)   %s" : "Range %.0f m", rng, sp, s->treb == 1 ? "LOOSED" : s->treb == 3 ? "WINCHING" : s->loaded > 0 ? "READY" : "NO STONES");
-    if (trebKind(d.kind)) dl->AddText(ImVec2(c.x + 14, c.y + 12), IM_COL32(240, 240, 230, 220), e);
+    {   // TRE5: the readout off to the left, clear of the target
+      char e[128];
+      if (trebKind(d.kind)) std::snprintf(e, sizeof e, "Range %.0f m  (%.0f m/s)\n%s", rng, sp, s->treb == 1 ? "LOOSED" : s->treb == 3 ? "WINCHING" : s->loaded > 0 ? "READY" : "NO STONES");
+      else std::snprintf(e, sizeof e, "Elevation %+.0f\xC2\xB0\nRange %.0f m%s", s->elev, rng, s->fuse >= 0 ? "\nFUSE LIT" : "");
+      const ImVec2 tp(io.DisplaySize.x * 0.06f, io.DisplaySize.y * 0.58f), ts = ImGui::CalcTextSize(e);
+      dl->AddRectFilled(ImVec2(tp.x - 8, tp.y - 6), ImVec2(tp.x + ts.x + 8, tp.y + ts.y + 6), IM_COL32(12, 12, 10, 150), 4); dl->AddText(tp, IM_COL32(240, 240, 230, 230), e);
+    }
     if (R.perf.trajLine && arc.size() > 1) {
       const mat4 vp = projM * viewM; auto scr = [&](vec3 w, ImVec2& o) { vec4 cc = vp * vec4(w, 1); if (cc.w < 0.05f) return false; o = ImVec2((cc.x / cc.w * 0.5f + 0.5f) * io.DisplaySize.x, (0.5f - cc.y / cc.w * 0.5f) * io.DisplaySize.y); return true; };
-      std::vector<ImVec2> pl; float run = 0; vec3 ce, cf; float cfov; const bool cam = stationCamera(ce, cf, cfov); if (!cam) ce = eyePos();
+      const vec3 ce = vec3(glm::inverse(viewM)[3]);   // the camera this frame is drawn from (occlusion)
+      std::vector<ImVec2> pl; float run = 0;
       for (size_t k = 0; k < arc.size(); ++k) { if (k) run += glm::length(arc[k] - arc[k - 1]); if (run < skip) continue; ImVec2 q; if (scr(arc[k], q) && !arcHidden(*ti, r, ce, arc[k])) pl.push_back(q); else if (pl.size() > 1) { dl->AddPolyline(pl.data(), (int)pl.size(), IM_COL32(255, 236, 170, 210), 0, 2.0f); pl.clear(); } }
       if (pl.size() > 1) dl->AddPolyline(pl.data(), (int)pl.size(), IM_COL32(255, 236, 170, 210), 0, 2.0f);
-      std::vector<ImVec2> ring; for (int k = 0; k <= 24; ++k) { const float a = k * 6.2831853f / 24; ImVec2 q; vec3 w = land + vec3(std::cos(a), 0, std::sin(a)) * std::max(1.5f, d.heRadius * 0.5f); w.y = std::max(land.y, terrain.height(w.x, w.z)) + 0.05f; if (scr(w, q)) ring.push_back(q); }
-      if (ring.size() > 2) dl->AddPolyline(ring.data(), (int)ring.size(), IM_COL32(255, 200, 110, 235), 0, 2.5f);
-      ImVec2 q; if (scr(land, q)) dl->AddCircleFilled(q, 3, IM_COL32(255, 200, 110, 235));
+      // the circle lies on the struck surface (its normal from the ray hit: upright on a wall, flat on the ground, tilted on a
+      // slope or roof), 4 cm off it; the breach's size on a wall or building, the blast's on the ground; hidden behind nearer things
+      const bool upright = nrm.y < 0.7f; const float rad = upright ? 1.1f : std::max(1.5f, d.heRadius);
+      const vec3 t1 = glm::normalize(glm::cross(nrm, std::fabs(nrm.y) < 0.9f ? vec3(0, 1, 0) : vec3(1, 0, 0))), t2 = glm::cross(nrm, t1);
+      std::vector<ImVec2> ring;
+      auto flush = [&]() { if (ring.size() > 1) dl->AddPolyline(ring.data(), (int)ring.size(), IM_COL32(255, 200, 110, 235), 0, 2.5f); ring.clear(); };
+      for (int k = 0; k <= 32; ++k) { const float a = k * 6.2831853f / 32; const vec3 w = land + nrm * 0.04f + (t1 * std::cos(a) + t2 * std::sin(a)) * rad; ImVec2 q;
+        if (scr(w, q) && !arcHidden(*ti, r, ce, w)) ring.push_back(q); else flush(); }
+      flush();
+      ImVec2 q; if (scr(land + nrm * 0.04f, q) && !arcHidden(*ti, r, ce, land + nrm * 0.04f)) dl->AddCircleFilled(q, 3, IM_COL32(255, 200, 110, 235));
     }
   }
-  if (s->pos2 == ST_GUNNER && cannonKind(d.kind)) { char e[64]; std::snprintf(e, sizeof e, "Elevation %+.0f\xC2\xB0%s", s->elev, s->fuse >= 0 ? "   FUSE LIT" : ""); dl->AddText(ImVec2(c.x + 14, c.y + 12), IM_COL32(240, 240, 230, 220), e); }
   if (s->pos2 == ST_GUNNER && !mgKind(d.kind) && !cannonKind(d.kind) && !trebKind(d.kind)) {
     // TZF-style optic: the eyepiece, its soft black surround and the reticle are drawn by the renderer (render.cpp
     // eyepiece pass); the shell / traverse / elevation readout sits at the bottom right of the eyepiece
