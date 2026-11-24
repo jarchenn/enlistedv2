@@ -6,6 +6,8 @@
 #     arrow, a root-level bone, moves with the hips
 #   - asset.extras.nmkNormals: the game loads the normal maps
 # Then tools/enemies/archer_shot.py adds the "longbow shot" clip the archers' attack plays.
+# RL1: also the Roman Legionary (no bow_string / arrow; a root-level "shield" bone keyed every frame): the bow's two joints are
+# optional, and every root-level bone of the skin (arrow, shield) moves with the hips when a clip's floor travel is pinned.
 #   python -I tools/enemies/ue4_archer_prep.py <in.glb> <out.glb>
 import json, struct, sys, os
 import numpy as np
@@ -19,9 +21,11 @@ for c, s in (('l', 'Left'), ('r', 'Right')):
 D = R['Rig'](*R['load'](SRC)); N = D.N; joints = set(D.J['skins'][0]['joints']); hit = 0
 for i in joints:
     if N[i].get('name') in M: N[i]['name'] = 'mixamorig:' + M[N[i]['name']]; hit += 1
-assert hit == len(M), (hit, len(M), sorted(set(M) - {n.get('name') for n in N}))
-hd = next(i for i in joints if N[i]['name'] == 'mixamorig:Hips'); ar = next(i for i in joints if N[i]['name'] == 'mixamorig:Arrow')
-Ph = D.rest(D.par[hd]) if hd in D.par else np.eye(4); Pa = D.rest(D.par[ar]) if ar in D.par else np.eye(4)
+OPT = {'bow_string', 'arrow'}   # RL1: the archer's; a legionary has none
+assert hit >= len(M) - len(OPT) and all('mixamorig:' + M[k] in {N[i].get('name') for i in joints} for k in set(M) - OPT), (hit, len(M), sorted(set(M) - OPT - {n.get('name') for n in N}))
+hd = next(i for i in joints if N[i]['name'] == 'mixamorig:Hips')
+root_j = [i for i in joints if i != hd and (i not in D.par or D.par[i] not in joints) and N[i]['name'] in ('mixamorig:Arrow', 'shield')]   # root-level bones baked in world space
+Ph = D.rest(D.par[hd]) if hd in D.par else np.eye(4)
 anims = []
 for a in D.J['animations']:
     T = max((D.acc(a['samplers'][ch['sampler']]['input'])[:, 0] for ch in a['channels']), key=len); new = {}
@@ -34,8 +38,10 @@ for a in D.J['animations']:
         w = (Ph @ np.c_[new[hd]['translation'], np.ones(len(T))].T).T[:, :3]; d = w - w[0]; d[:, 1] = 0; travel = float(np.linalg.norm(d, axis=1).max())
         if travel > 0.05:
             new[hd]['translation'] = (np.linalg.inv(Ph) @ np.c_[w - d, np.ones(len(T))].T).T[:, :3]
-            if ar in new and 'translation' in new[ar]:
-                kw = (Pa @ np.c_[new[ar]['translation'], np.ones(len(T))].T).T[:, :3] - d; new[ar]['translation'] = (np.linalg.inv(Pa) @ np.c_[kw, np.ones(len(T))].T).T[:, :3]
+            for ar in root_j:
+                if ar in new and 'translation' in new[ar]:
+                    Pa = D.rest(D.par[ar]) if ar in D.par else np.eye(4)
+                    kw = (Pa @ np.c_[new[ar]['translation'], np.ones(len(T))].T).T[:, :3] - d; new[ar]['translation'] = (np.linalg.inv(Pa) @ np.c_[kw, np.ones(len(T))].T).T[:, :3]
             print('PIN  %-36s floor travel taken off: %.2f m' % (a['name'], travel))
     anims.append((a['name'], T - T[0], new))
 D.J.setdefault('asset', {}).setdefault('extras', {})['nmkNormals'] = True
