@@ -144,7 +144,7 @@
   "label": "Mortar on a truck carriage",
   "heName": "Round shot",
   "sightFov": 34,
-  "aimEye": [0, 0.42, -1.9],
+  "aimEye": [0, 0.33, 0.15],
   "muzzleScale": 1.9,
   "fireSound": "pak_fire",
   "shellHE": {

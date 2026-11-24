@@ -613,6 +613,7 @@ bool App::arcHidden(const Instance& i, const InstanceRT& r, vec3 eye, vec3 p) co
       if (role[k] == 6 || role[k] == 7) { if (role[k] == 7) continue; M = b * gm->animAt((int)k, gm->animDuration > 0 ? trebuchetClipTime(r) / gm->animDuration : 0.0f); }
       if (role[k] == 8 || role[k] == 5) continue;
       const vec3 c = vec3(M * vec4((gm->parts[k].bmin + gm->parts[k].bmax) * 0.5f, 1)), he = (gm->parts[k].bmax - gm->parts[k].bmin) * 0.5f; float t;
+      const vec3 le = glm::inverse(glm::quat_cast(glm::mat3(M))) * (eye - c); if (std::fabs(le.x) < he.x && std::fabs(le.y) < he.y && std::fabs(le.z) < he.z) continue;   // TRE4: the eye inside a part's box (the muzzle eye)
       if (rayOBB(eye, u, c, he, glm::quat_cast(glm::mat3(M)), t) && t > 0 && t < L - 0.05f) return true;
     }
   }
@@ -620,16 +621,16 @@ bool App::arcHidden(const Instance& i, const InstanceRT& r, vec3 eye, vec3 p) co
 }
 // TRE2: the aimed shot's path as stepProjectiles flies it (Euler at 120 Hz, g x the shot's gravity factor, no drag), from
 // `from` until the first thing it would strike (the gun itself ignored), the ground, or the projectile's 9 s life
-std::vector<vec3> App::shotArc(vec3 from, vec3 v, float grav, uint64_t ignore, vec3* hitPos) const {
+std::vector<vec3> App::shotArc(vec3 from, vec3 v, float grav, uint64_t ignore, vec3* hitPos, float* tOut, uint64_t* hitUd) const {
   std::vector<vec3> pts{from}; vec3 p = from; const float h = 1.0f / 120;
   for (float t = 0; t < 9.0f; t += h) {
     const vec3 seg = v * h; Physics::Hit hit;
-    if (Physics::castRayEx(p, seg, glm::length(seg), hit, ignore)) { pts.push_back(hit.pos); if (hitPos) *hitPos = hit.pos; return pts; }
+    if (Physics::castRayEx(p, seg, glm::length(seg), hit, ignore)) { pts.push_back(hit.pos); if (hitPos) *hitPos = hit.pos; if (tOut) *tOut = t + h * hit.t / std::max(1e-6f, glm::length(seg)); if (hitUd) *hitUd = hit.ud; return pts; }
     p += seg; v.y -= 9.81f * grav * h;
     if (((int)std::lround(t / h)) % 6 == 0) pts.push_back(p);   // a point every 50 ms is smooth on screen
     if (p.y < -100) break;
   }
-  pts.push_back(p); if (hitPos) *hitPos = p; return pts;
+  pts.push_back(p); if (hitPos) *hitPos = p; if (tOut) *tOut = 9.0f; if (hitUd) *hitUd = 0; return pts;
 }
 void App::trebuchetStep(float dt) {
   for (auto& i : doc.instances) {
@@ -789,7 +790,7 @@ void App::drawCombatUI() {
     vec3 from, dir, land; float sp; std::vector<vec3> arc; float skip = 0;
     if (trebKind(d.kind)) { from = trebuchetRelease(*ti, r, dir, sp); arc = shotArc(from, dir * sp, 1.0f, coreUD(ti->id), &land); }
     else { mat4 b0, y0, e0, rc0; stationParts(*ti, r, b0, y0, e0, rc0); const vec3 bore = d.muzzle - d.elevPivot; vec3 md; const vec3 mz = stationMuzzle(*ti, r, md);
-      from = vec3(e0 * vec4(bore.x, bore.y, 0, 1)); dir = glm::normalize(vec3(e0 * vec4(0, 0, 1, 0))); sp = d.heVelocity; skip = glm::length(mz - from);   // as stationShoot: from the trunnion plane, drawn from the muzzle
+      from = vec3(e0 * vec4(bore.x, bore.y, 0, 1)); dir = glm::normalize(vec3(e0 * vec4(0, 0, 1, 0))); sp = d.heVelocity; skip = glm::length(mz - from) + 2.0f;   // as stationShoot: from the trunnion plane, drawn from 2 m past the muzzle (TRE4: edge-on from the muzzle eye before that)
       arc = shotArc(from, dir * sp, d.heGravity, coreUD(ti->id), &land); }
     const float rng = glm::length(vec2(land.x - from.x, land.z - from.z));
     char e[112]; std::snprintf(e, sizeof e, trebKind(d.kind) ? "Range %.0f m  (%.0f m/s)   %s" : "Range %.0f m", rng, sp, s->treb == 1 ? "LOOSED" : s->treb == 3 ? "WINCHING" : s->loaded > 0 ? "READY" : "NO STONES");
@@ -883,7 +884,8 @@ int cannonSelfCheck() {
       const vec3 g = jvec3(st["gunner"]); float gap = 1e9f;
       for (auto& pj : j.value("parts", json::array())) { const vec3 c = jvec3(pj["c"]), h = jvec3(pj["s"]) * 0.5f; const vec2 q(std::max(0.0f, std::fabs(g.x - c.x) - h.x), std::max(0.0f, std::fabs(g.z - c.z) - h.z)); gap = std::min(gap, glm::length(q)); }
       ok(gap >= Physics::radius() + 0.02f, n + " the gunner's spot clears the carriage by " + std::to_string(gap).substr(0, 4) + " m (player radius " + std::to_string(Physics::radius()).substr(0, 4) + ")");
-      ok(st.contains("aimEye") && st["aimEye"][1].get<float>() > 0.3f, n + " the aiming eye sits above the tube");
+      const float mzz = st["muzzle"][2].get<float>() - st["elevPivot"][2].get<float>();   // TRE4 (the user): the eye at the muzzle, just above the bore, looking down the shot
+      ok(st.contains("aimEye") && st["aimEye"][1].get<float>() > 0.1f && st["aimEye"][1].get<float>() < 0.4f && std::fabs(st["aimEye"][2].get<float>() - mzz) < 0.4f, n + " the aiming eye sits at the muzzle, just above the bore");
     }
   }
   std::printf("[can1] %s (%d failed)\n", fails ? "FAIL" : "PASS", fails);
