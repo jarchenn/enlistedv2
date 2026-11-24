@@ -345,6 +345,8 @@ private:
 // from AssetDef::parts at load): line pieces (lines_ln2.cpp) map these, a plain wall box included.
 std::vector<Part> assetRawParts(const AssetDef& a);
 void appendPart(MeshData& m, const Part& p, const Material& mat, const mat4& xf);
+// CW4d: an irregular faceted rock filling p's box (centre, size, rot): a jittered, flat-shaded icosphere (rubble)
+void appendRock(MeshData& m, const Part& p, const Material& mat, const mat4& xf, uint32_t seed);
 // P2 leafmerge (assets.cpp): all leaves of an asset at rest, interactable k closed (0) or fully open (1), asset space
 struct LeafPose { GpuMesh opaque, glass; GLuint xbuf[2] = {0, 0}; void destroy(); };
 void buildLeafPose(const AssetDef& a, const std::vector<uint8_t>& open, LeafPose& out);

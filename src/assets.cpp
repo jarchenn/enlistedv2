@@ -1,3 +1,4 @@
+#include <array>
 #include "user_cache.h"
 #include <chrono>
 #include "assets.h"
@@ -645,6 +646,32 @@ void appendPart(MeshData& m, const Part& p, const Material& mat, const mat4& xf)
     face(A[0], A[1], A[2], A[2]);
     face(B[0], B[1], B[2], B[2]);
     for (int k = 0; k < 3; ++k) { int j = (k + 1) % 3; face(A[k], A[j], B[j], B[k]); }
+  }
+}
+
+void appendRock(MeshData& m, const Part& p, const Material& mat, const mat4& xf, uint32_t seed) {
+  // an icosahedron split once (42 vertices, 80 faces), every vertex pushed in or out at random, then scaled into the
+  // box: an irregular broken stone; flat faces (each its own normal) read as fractures
+  auto rnd = [&](uint32_t k) { uint32_t h = seed * 0x9E3779B1u ^ (k * 0x85ebca6bu); h ^= h >> 16; h *= 0x7feb352dU; h ^= h >> 15; h *= 0x846ca68bU; h ^= h >> 16; return (h & 0xFFFFFF) / 16777216.0f; };
+  const float t = (1.0f + std::sqrt(5.0f)) / 2.0f;
+  std::vector<vec3> V = {{-1, t, 0}, {1, t, 0}, {-1, -t, 0}, {1, -t, 0}, {0, -1, t}, {0, 1, t}, {0, -1, -t}, {0, 1, -t}, {t, 0, -1}, {t, 0, 1}, {-t, 0, -1}, {-t, 0, 1}};
+  std::vector<std::array<int, 3>> F = {{0, 11, 5}, {0, 5, 1}, {0, 1, 7}, {0, 7, 10}, {0, 10, 11}, {1, 5, 9}, {5, 11, 4}, {11, 10, 2}, {10, 7, 6}, {7, 1, 8},
+                                       {3, 9, 4}, {3, 4, 2}, {3, 2, 6}, {3, 6, 8}, {3, 8, 9}, {4, 9, 5}, {2, 4, 11}, {6, 2, 10}, {8, 6, 7}, {9, 8, 1}};
+  for (auto& v : V) v = glm::normalize(v);
+  std::map<std::pair<int, int>, int> mid;
+  auto midp = [&](int a, int b) { auto key = std::minmax(a, b); auto it = mid.find(key); if (it != mid.end()) return it->second; V.push_back(glm::normalize(V[a] + V[b])); return mid[key] = (int)V.size() - 1; };
+  std::vector<std::array<int, 3>> F2;
+  for (auto& f : F) { int a = midp(f[0], f[1]), b = midp(f[1], f[2]), c = midp(f[2], f[0]); F2.push_back({f[0], a, c}); F2.push_back({f[1], b, a}); F2.push_back({f[2], c, b}); F2.push_back({a, b, c}); }
+  for (size_t k = 0; k < V.size(); ++k) V[k] *= 0.72f + 0.5f * rnd((uint32_t)k);
+  vec3 lo(1e9f), hi(-1e9f); for (auto& v : V) { lo = glm::min(lo, v); hi = glm::max(hi, v); }
+  vec3 sc = p.size / glm::max(hi - lo, vec3(1e-4f)), mc = 0.5f * (lo + hi);
+  for (auto& v : V) v = (v - mc) * sc;
+  LocalMesh L(m, p, mat, xf);
+  for (auto& f : F2) {
+    vec3 a = V[f[0]], b = V[f[1]], c = V[f[2]];
+    vec3 n = glm::cross(b - a, c - a); float l = glm::length(n); if (l < 1e-9f) continue; n /= l;
+    if (glm::dot(n, a + b + c) < 0) n = -n;
+    L.tri(L.v(a, n), L.v(b, n), L.v(c, n), n);
   }
 }
 

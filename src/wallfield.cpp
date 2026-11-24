@@ -330,6 +330,7 @@ int App::stampWall(InstanceRT& r, const WallEvent& e, bool effects, std::vector<
   const Outline ol = outlineFor(e.seed);
   int touched = 0;
   std::vector<vec3> removedAt;   // debris spawn points (asset space)
+  bool anyRampart = false;       // CW4d: a rampart's rubble is the pile drawn with its bay (rebuildPanel), not thrown cubes
   struct Touched { size_t k; Frame f; int iu0, iu1, iv0, iv1; bool fromFront; };
   std::vector<Touched> bays;
   auto debrisAt = [&](const Frame& f, int idx) {
@@ -407,7 +408,7 @@ int App::stampWall(InstanceRT& r, const WallEvent& e, bool effects, std::vector<
         float fall = q < 0.55f ? 1.0f : std::pow(1.0f - (q - 0.55f) / 0.45f, 0.6f);
         fall *= 0.8f + 0.2f * vnoise(e.seed ^ 0x27d4eb2fu, cu / 0.06f, cvv / 0.06f);   // only ever less than the profile
         Add ad{iv * f.nu + iu, D * fall, 0};
-        if (masonry) { ad.stone = stoneId(cu, cvv); auto& s = stones[ad.stone]; s.first = std::max(s.first, ad.add); s.second += 1; }
+        if (masonry || rampart) { ad.stone = stoneId(cu, cvv); auto& s = stones[ad.stone]; s.first = std::max(s.first, ad.add); s.second += 1; }
         adds.push_back(ad);
       }
     if (adds.empty()) continue;
@@ -420,6 +421,21 @@ int App::stampWall(InstanceRT& r, const WallEvent& e, bool effects, std::vector<
         if (mx > 0.45f * D) ad.add = mx * j;                                    // the whole stone
         else ad.add = std::min(ad.add, 0.06f) * j;                              // face chip, at most 6 cm
       }
+    if (rampart) {   // CW4d: a rampart loses whole stones or none (no face chips: no speckle round the hole), the stone
+      // whole even where it runs past the outline, so the hole's edge steps along the courses and the block joints
+      std::unordered_map<int64_t, float> gone;
+      for (auto& [id, s] : stones) if (s.first > 0.45f * D) gone[id] = std::min(D, s.first * (0.95f + 0.1f * rnd01(e.seed, (uint32_t)(id & 0xffffffff), 77u)));
+      std::vector<Add> keep; std::unordered_map<int, bool> seen;
+      for (auto& ad : adds) { auto g = gone.find(ad.stone); if (g == gone.end()) continue; ad.add = g->second; keep.push_back(ad); seen[ad.idx] = true; }
+      for (int iv = iv0; iv <= iv1; ++iv)
+        for (int iu = iu0; iu <= iu1; ++iu) {
+          int idx = iv * f.nu + iu; if (seen.count(idx)) continue;
+          int64_t sid = stoneId(f.u0 + (iu + 0.5f) * f.cu, f.v0 + (iv + 0.5f) * f.cv);
+          auto g = gone.find(sid); if (g != gone.end()) keep.push_back({idx, g->second, sid});
+        }
+      adds.swap(keep);
+      if (adds.empty()) continue;
+    }
     // 3) apply on the struck face; perforation and back-face spall when the remaining material gets thin
     bool changed = false;
     for (auto& ad : adds) {
@@ -438,6 +454,7 @@ int App::stampWall(InstanceRT& r, const WallEvent& e, bool effects, std::vector<
     }
     if (!changed) continue;
     bays.push_back({k, f, iu0, iu1, iv0, iv1, fromFront});
+    if (rampart) anyRampart = true;
   }
   // 4) no slivers: once every bay has its stamp, thin bridges of material left between damaged areas go. Along
   //    each of four directions, a solid run of at most destruction.bridgeMax between two open cells is opened
@@ -703,7 +720,7 @@ int App::stampWall(InstanceRT& r, const WallEvent& e, bool effects, std::vector<
     if (inst) {
       mat4 M = instanceMatrix(*inst);
       vec3 dn = blast ? vec3(0, 1, 0) : dn0;
-      int n = std::min<int>(destruction.maxFragmentsPerHit, (int)removedAt.size());
+      int n = anyRampart ? 0 : std::min<int>(destruction.maxFragmentsPerHit, (int)removedAt.size());
       for (int j = 0; j < n; ++j) {
         vec3 pa = removedAt[(size_t)(rnd01(e.seed, 31u, (uint32_t)j) * removedAt.size()) % removedAt.size()];
         vec3 pw = vec3(M * vec4(pa, 1));
@@ -836,6 +853,37 @@ void App::rebuildPanel(InstanceRT& r, size_t k) {
           ++chamfers;
         }
       }
+  }
+  if (pn.family == "rampart" && f.av == 1 && f.v0 < 0.05f && open > 0) {
+    // CW4d: the rubble of a rampart breached at its foot: broken stones of the wall's own stone heaped at the foot of
+    // the hole on both faces and strewn through it -- mostly small, some middling, a few big blocks. Drawn with the bay
+    // (render only: soldiers walk over it), a function of the bay's damage, so every replay, LAN client and reload
+    // heaps the same pile.
+    int nb = std::max(1, (int)std::round(0.4f / f.cv)); float uA = 1e9f, uB = -1e9f; int foot = 0;
+    for (int iv = 0; iv < std::min(nb, f.nv); ++iv)
+      for (int iu = 0; iu < f.nu; ++iu)
+        if (w.rf[iv * f.nu + iu] + w.rb[iv * f.nu + iu] >= f.T - 1e-4f) { float u = f.u0 + (iu + 0.5f) * f.cu; uA = std::min(uA, u); uB = std::max(uB, u); ++foot; }
+    if (foot > 0) {
+      const Part* sp = nullptr; for (auto& p : pn.parts[0]) if (!sp || p.size[f.an] > sp->size[f.an]) sp = &p;   // the body's stone
+      const uint32_t seed = (uint32_t)std::hash<std::string>{}(pn.id) ^ (uint32_t)(open * 2654435761u);
+      auto rr = [&](uint32_t j, uint32_t s) { return rnd01(seed, j, s); };
+      const int n = std::clamp((int)(open * f.cu * f.cv * 16.0f), 14, 70);
+      const float back = coordOf(f, f.T), width = uB - uA + f.cu;
+      for (int j = 0; j < n; ++j) {
+        float g = rr(j, 1), sz = g < 0.7f ? 0.07f + 0.12f * rr(j, 2) : g < 0.95f ? 0.2f + 0.14f * rr(j, 2) : 0.36f + 0.16f * rr(j, 2);
+        int side = rr(j, 3) < 0.45f ? 0 : rr(j, 3) < 0.9f ? 1 : 2;                 // outside face, inside face, in the passage
+        float tri = rr(j, 4) + rr(j, 5) - 1.0f;                                       // across the hole: heaped at its middle
+        float u = 0.5f * (uA + uB) + tri * (0.5f * width + 0.5f);
+        float d = side == 2 ? f.T * rr(j, 6) : 0.1f + 1.3f * rr(j, 6) * rr(j, 7);    // out from the face (most near it)
+        float x = side == 0 ? f.front + f.ns * d : side == 1 ? back - f.ns * d : coordOf(f, d);
+        float mound = side == 2 ? 0.05f : 0.32f * std::max(0.0f, 1.0f - d / 1.2f) * std::max(0.0f, 1.0f - std::fabs(tri));
+        Part p = *sp; p.collide = false; p.shape = Part::BOX;
+        p.size = vec3(sz * (0.75f + 0.6f * rr(j, 8)), sz * (0.5f + 0.35f * rr(j, 9)), sz * (0.75f + 0.6f * rr(j, 10)));
+        p.center = vec3(0); p.center[f.au] = u; p.center[f.an] = x; p.center.y = mound + 0.4f * p.size.y;
+        p.rot = glm::angleAxis(6.2831853f * rr(j, 11), vec3(0, 1, 0)) * glm::angleAxis(0.5f * (rr(j, 12) - 0.5f), vec3(1, 0, 0));
+        appendRock(md, p, a->materials[p.mat], xf, seed + (uint32_t)j * 7919u);
+      }
+    }
   }
   r.pmesh[k].upload(md);
   r.pshape[k] = boxes.empty() ? nullptr : Physics::buildShape(boxes);
