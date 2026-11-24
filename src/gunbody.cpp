@@ -227,6 +227,7 @@ float hipsYaw(const CharModel& m, const PoseResult& P) {
 // while running falling forward; else front / back -- then one at random among them, never the clip a soldier within 20 m took in the
 // last 4 s when another is valid. -1: none of them in this model (the old pick)
 static int pickDeath(Game& G, Soldier& s, const DRig& r, const CharModel& m, bool crouch) {
+  std::lock_guard<std::recursive_mutex> lk(gPoseCacheMx);   // runs on the pose job threads: the shared "recent deaths" list and the log line below (two soldiers dying in one frame crashed here)
   const std::string& how = s.lastHow;
   const bool blast = how == "blast" || how == "vehicle", head = how == "head" || how == "neck";
   const vec3 f = App::forward(s.yaw, 0), rt(-f.z, 0, f.x);
