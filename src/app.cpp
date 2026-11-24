@@ -533,6 +533,10 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
         R.worldModels.push_back({gm, (int)k, r.asset->modelSink > 0.0f ? glm::translate(mat4(1), vec3(0, -r.asset->modelSink, 0)) * M : M, vec4(1), r.asset->modelThinPx});   // BT2 model.sink
       }
       op.push_back({&r.asset->opaque, M});   // any visible box parts (none for the wire obstacles)
+      if (!r.asset->panels.empty()) {   // CW4f: a modelled asset's breachable bays (the cw_wall rampart body) are engine-drawn: intact merged, or per bay once damaged
+        if (!r.damaged) op.push_back({R.perf.wallLod && camDist > 150.0f && r.asset->panelsLod[1].count ? &r.asset->panelsLod[1] : &r.asset->panelsIntact, M});
+        else for (size_t k = 0; k < r.asset->panels.size(); ++k) op.push_back({k < r.wf.size() && r.wf[k].active ? &r.pmesh[k] : &r.asset->panels[k].mesh[0], M});
+      }
       if (r.asset->glass.count) gl.push_back({&r.asset->glass, M});
       if (!r.asset->interactables.empty() && camDist < 250.0f) {   // MOD2: a modelled building's own doors (engine interactables over the model)
         const mat4 IM = instanceMatrix(i);

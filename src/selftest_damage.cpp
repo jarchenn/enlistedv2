@@ -127,6 +127,24 @@ float aspectOf(const Grid& g, float& angleDeg) {
 float physGround(vec3 p) { Physics::Hit h; return Physics::castRayEx(vec3(p.x, p.y + 30, p.z), vec3(0, -1, 0), 80, h) ? h.pos.y : -999; }
 }
 
+// CW4f: is the city-wall section's engine-drawn body (its rampart bays) in the draw list seen from `dist` m in front?
+// (a modelled asset took the model branch and never pushed its bays: the wall-walk floated with no wall under it)
+bool wallBodyDrawn(App& app, uint64_t id, float dist) {
+  const Instance* in = app.doc.find(id); const InstanceRT& r = app.rt[id]; const AssetDef* a = r.asset;
+  if (!in || !a) return false;
+  const vec3 c = W(app, id, vec3(0, 4.5f, 0)), out = Wd(app, id, vec3(0, 0, 1));
+  const vec3 keep = app.camPos; const float ky = app.camYaw, kp = app.camPitch; const Mode km = app.mode;
+  app.mode = Mode::Creative; app.camPos = c + out * dist + vec3(0, 2.0f, 0);
+  const vec3 d = c - app.camPos; app.camYaw = degrees(std::atan2(-d.x, -d.z)); app.camPitch = degrees(std::atan2(d.y, glm::length(vec2(d.x, d.z))));
+  std::vector<DrawItem> op, gl; app.buildDrawLists(op, gl);
+  app.camPos = keep; app.camYaw = ky; app.camPitch = kp; app.mode = km;
+  for (auto& it : op) {
+    if (it.mesh == &a->panelsIntact || it.mesh == &a->panelsLod[0] || it.mesh == &a->panelsLod[1]) return true;
+    for (size_t k = 0; k < a->panels.size(); ++k) if (it.mesh == &a->panels[k].mesh[0] || (k < r.pmesh.size() && it.mesh == &r.pmesh[k])) return true;
+  }
+  return false;
+}
+
 void SelfTest::beginCustom(App& app, const std::string& asset, uint64_t inst, const json& st) {
   curAsset = asset; houseId = inst;
   steps.clear(); for (auto& s : st) steps.push_back(s);
@@ -204,6 +222,7 @@ void SelfTest::damageUpdate(App& app, float dt) {
       const AssetDef* ra = app.rt[X.R].asset;
       int k0 = pidx(ra, "rampart/0-1"), k1 = pidx(ra, "rampart/1-1");
       check(k0 >= 0 && k1 >= 0 && ra->panels[k0].family == "rampart", "city wall: its body is rampart bays");
+      for (float dd : {20.0f, 60.0f, 200.0f}) check(wallBodyDrawn(app, X.R, dd), "city wall: its rampart body is drawn from " + std::to_string((int)dd) + " m (not the wall-walk alone)");
       if (k0 >= 0 && k1 >= 0) {
         const Panel& p0 = ra->panels[k0];
         float cx = 0.5f * (p0.bmin.x + p0.bmax.x), front = p0.bmax.z;
@@ -439,6 +458,7 @@ void SelfTest::damageUpdate(App& app, float dt) {
   case 530: {   // CW4b: the city-wall breach (made in 501) is walked through upright and found by the navmesh
     const AssetDef* ra = app.rt[X.R].asset;
     int k0 = pidx(ra, "rampart/0-1");
+    check(wallBodyDrawn(app, X.R, 60.0f), "city wall, breached: its bays (the broken one rebuilt) are drawn from 60 m");
     const Panel& p0 = ra->panels[k0];
     float cx = 0.5f * (p0.bmin.x + p0.bmax.x);
     Nav* nav = new Nav();   // a local navmesh over a strip narrower than the section: the only way through is the hole
