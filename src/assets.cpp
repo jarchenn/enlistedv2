@@ -1148,9 +1148,11 @@ void AssetLibrary::build(AssetDef& ad) const {
     st.fireSound = sj.value("fireSound", std::string("pak_fire")); st.fixed = sj.value("fixed", false);
     st.vent = jvec3(jkey(sj, "vent"), st.muzzle); st.fuseTip = jvec3(jkey(sj, "fuseTip"), st.vent); st.fuseTime = sj.value("fuseTime", 1.0f); st.pushSpeed = sj.value("pushSpeed", 0.9f);   // CAN1
     st.heGravity = jkey(sj, "shellHE").value("gravity", 1.0f);
+    if (sj.contains("gunner2")) { st.gunner2 = jvec3(sj["gunner2"]); st.twoSides = true; }   // TRE2
+    if (sj.contains("aimEye")) { st.aimEye = jvec3(sj["aimEye"]); st.hasAimEye = true; }   // TRE3
     if (sj.contains("trebuchet")) { const json& tj = sj["trebuchet"];   // TRE1
       st.trebFire = tj.value("fire", st.trebFire); st.trebReloadAt = tj.value("reloadAt", st.trebReloadAt); st.trebReload = tj.value("reload", st.trebReload); st.trebRelease = tj.value("release", st.trebRelease);
-      st.trebStoneBack = tj.value("stoneBack", st.trebStoneBack); st.rangeMin = tj.value("rangeMin", st.rangeMin); st.rangeMax = tj.value("rangeMax", st.rangeMax); st.launchDeg = tj.value("launchDeg", st.launchDeg); }
+      st.trebStoneBack = tj.value("stoneBack", st.trebStoneBack); if (tj.contains("speed") && tj["speed"].size() == 3) { st.speedLo = tj["speed"][0]; st.speed0 = tj["speed"][1]; st.speedHi = tj["speed"][2]; } st.launchDeg = tj.value("launchDeg", st.launchDeg); }
     if (sj.contains("ball")) { auto gm = std::make_shared<GpuModel>(); std::string e; if (gm->load(contentDir() / "assets" / "models" / sj["ball"].get<std::string>(), e)) st.ballModel = gm; else logf("asset %s: ball model: %s (a trail instead)", a->id.c_str(), e.c_str()); }
     auto load = [&](const char* key, std::vector<Part>& parts, GpuMesh& mesh, vec3 pivot) {
       MeshData m;

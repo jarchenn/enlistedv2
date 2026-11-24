@@ -190,6 +190,7 @@ void SelfTest::update(App& app, float dt) {
   { extern bool captureVh8SelfTest(App&, float); if (captureVh8SelfTest(app, dt)) return; }   // VH8: --capture-vh8
   { extern bool captureShadeSelfTest(App&, float); if (captureShadeSelfTest(app, dt)) return; }   // --capture-shade
   { extern bool captureRc2SelfTest(App&, float); if (captureRc2SelfTest(app, dt)) return; }   // RC2: --capture-rc2
+  { extern bool captureTre2SelfTest(App&, float); if (captureTre2SelfTest(app, dt)) return; }   // TRE2: --capture-tre2
   { extern bool snd10SelfTest(App&, float); if (snd10SelfTest(app, dt)) return; }   // SND10: --check-snd10
   { extern bool btaSelfTest(App&, float); if (btaSelfTest(app, dt)) return; }   // BTA: --check-bta
   { extern bool benchViews(App&, float); if (benchViews(app, dt)) return; }   // P1: --bench-views

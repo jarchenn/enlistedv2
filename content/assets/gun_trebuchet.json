@@ -3,7 +3,7 @@
  "version": 1,
  "name": "Counterweight trebuchet",
  "category": "Field guns",
- "description": "A counterweight trebuchet (the user's own model; CC0 textures). Crew it from the gunner (Aim): turn the frame slowly with the aim, set the range with the elevation (60 to 260 m), Fire knocks out the trigger: the arm swings and the sling looses the stone on a high arc; it crushes what it lands on (area damage) and breaches rampart bays like round shot. The crew winches the arm back down and loads the next stone (about 10 s). Twenty stones. Emplaced: it is not moved. Game values.",
+ "description": "A counterweight trebuchet (the user's own model; CC0 textures). Crew it from either side (Aim): turn the frame slowly with the aim, set the throw with the elevation (about 45 to 215 m; 105 m at the middle), Fire knocks out the trigger: the arm swings and the sling looses the stone on a high arc; it crushes what it lands on (area damage) and breaches rampart bays like round shot. The crew winches the arm back down and loads the next stone (about 8 s). Twenty stones. Emplaced: it is not moved. Game values.",
  "floors": 0,
  "enterable": false,
  "footprint": [
@@ -152,7 +152,7 @@
   "traverseRate": 3,
   "elevateRate": 6,
   "recoil": 0,
-  "reloadTime": 9.96,
+  "reloadTime": 7.97,
   "loaded": 1,
   "reserve": 19,
   "ammo": "trebuchet_stone",
@@ -162,7 +162,7 @@
    4.6
   ],
   "serviceRadius": 8,
-  "sightFov": 60,
+  "sightFov": 50,
   "muzzleScale": 0,
   "fireSound": "bolt",
   "ball": "trebuchet_stone",
@@ -174,15 +174,23 @@
    "gravity": 1.0
   },
   "trebuchet": {
-   "fire": 9.333,
-   "reloadAt": 9.367,
-   "reload": 9.958,
-   "release": 1.458,
-   "stoneBack": 9.458,
-   "rangeMin": 60,
-   "rangeMax": 260,
-   "launchDeg": 45
+   "fire": 7.467,
+   "reloadAt": 7.5,
+   "reload": 7.967,
+   "release": 1.167,
+   "stoneBack": 7.567,
+   "speed": [
+    20,
+    30,
+    45
+   ],
+   "launchDeg": 40
   },
-  "note": "TRE1: the model's one timeline (tools/trebuchet/timeline.py): fire 0..9.33 s (the GLB runs at 24 fps: the release at frame 36 = 1.46 s), reload 9.37..19.33 s (the stone back in the pouch 9.46 s in). Range by the elevation: -5 deg 60 m .. +15 deg 260 m at a 45 deg launch; a 0.34 m stone, 300 damage within 5 m, breaches rampart bays (WALL_CANNON); twenty stones; the frame turns 3 deg/s in place."
+  "note": "TRE1 / TRE2: the model's one timeline (tools/trebuchet/timeline.py --time 0.8: the 21:04 export keeps 30 fps frames on a 24 fps timebase): fire 0..7.47 s, the release 1.17 s in, reload 7.5..15.47 s (the stone back in the pouch 7.57 s in). The stone leaves the sling at 40 deg; the elevation sets its speed: -5 deg 20 m/s, 0 deg 30 m/s (the user's approved shot), +15 deg 45 m/s. A 0.34 m stone, 300 damage within 5 m, breaches rampart bays (WALL_CANNON); twenty stones; worked from either side (gunner / gunner2, the nearer one); the frame turns 3 deg/s in place.",
+  "gunner2": [
+   -2.8,
+   0,
+   -2.0
+  ]
  }
 }

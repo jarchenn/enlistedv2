@@ -2,10 +2,12 @@
 # ("timeline": the bake samples only the first clip, model.cpp), each moved to start at 0 (the source's strips sit at 1.9 s
 # and 2.0 s), the stone's scale held at 1 (the source shrinks it to 0 at the release; the game hides the part instead: a
 # zero scale would not survive the bake's per-sample rotation / translation blend). Prints the segments for the asset JSON.
-#   python -I tools/trebuchet/timeline.py <trebuchet.glb> <out.glb>       (run through Blender's python for a supplied file)
+# TRE2: --time k scales every key time (the 21:04 export keeps 30 fps frames on a 24 fps timebase: k = 0.8 puts the stone's
+# flight back at g = 9.81 and the release at 1.2 s).
+#   python -I tools/trebuchet/timeline.py <trebuchet.glb> <out.glb> [--time k]       (run through Blender's python for a supplied file)
 import json, struct, sys
 import numpy as np
-SRC, OUT = sys.argv[1:3]
+SRC, OUT = sys.argv[1:3]; TK = float(sys.argv[sys.argv.index('--time') + 1]) if '--time' in sys.argv else 1.0
 b = open(SRC, 'rb').read(); jl = struct.unpack('<I', b[12:16])[0]; J = json.loads(b[20:20 + jl]); bl = struct.unpack('<I', b[20 + jl:24 + jl])[0]; BIN = bytearray(b[28 + jl:28 + jl + bl])
 N = J['nodes']; nid = {n['name']: i for i, n in enumerate(N)}
 NC = {'SCALAR': 1, 'VEC3': 3, 'VEC4': 4}
@@ -22,7 +24,7 @@ def put(arr, typ):
 A = {a['name']: a for a in J['animations']}
 segs = []; chans = {}; t0 = 0.0
 for name in ('fire', 'reload'):
-    a = A[name]; ins = [acc(a['samplers'][c['sampler']]['input'])[:, 0] for c in a['channels']]
+    a = A[name]; ins = [acc(a['samplers'][c['sampler']]['input'])[:, 0] * TK for c in a['channels']]
     keyed = [t for t in ins if len(t) > 2] or ins   # the clip's span: its keyed channels (the held 2-key ones start at the strip's 0)
     lo = min(float(t.min()) for t in keyed); hi = max(float(t.max()) for t in keyed); dur = hi - lo
     for c, t in zip(a['channels'], ins):

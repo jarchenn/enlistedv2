@@ -164,9 +164,11 @@ struct StationDef {
   vec3 vent{0}, fuseTip{0}; float fuseTime = 1.0f, heGravity = 1.0f, pushSpeed = 0.9f;
   std::shared_ptr<GpuModel> ballModel;
   // TRE1 kind "trebuchet": the model's one baked timeline holds "fire" then "reload" (tools/trebuchet/timeline.py); the stone
-  // leaves the Stone part at `release` s into fire, on a `launchDeg` arc ranged rangeMin..rangeMax by the gunner's elevation
-  // (elevation's min..max); the frame turns in place (yaw); never moved
-  float trebFire = 9.33f, trebReloadAt = 9.37f, trebReload = 9.96f, trebRelease = 1.46f, trebStoneBack = 9.46f, rangeMin = 60, rangeMax = 260, launchDeg = 45;
+  // leaves the Stone part at `release` s into fire at launchDeg, its speed set by the gunner's elevation: speedLo at the
+  // elevation's min, speed0 at 0, speedHi at its max (TRE2); the frame turns in place (yaw); never moved; worked from either side
+  float trebFire = 9.33f, trebReloadAt = 9.37f, trebReload = 9.96f, trebRelease = 1.46f, trebStoneBack = 9.46f, speedLo = 20, speed0 = 30, speedHi = 45, launchDeg = 40;
+  vec3 gunner2{0}; bool twoSides = false;
+  vec3 aimEye{0}; bool hasAimEye = false;   // TRE3: the cannon gunner's eye in the elevation frame, above and behind the breech (relative to elevPivot)   // TRE2: the second operator position (the frame's other side)
 };
 
 // Destructible tree (Vegetation): trunk parts split at the stump cut, alpha-tested leaf cards with a sway mask.

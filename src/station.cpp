@@ -20,13 +20,8 @@ static bool cannonKind(const std::string& k) { return k == "cannon"; }
 // TRE1: the counterweight trebuchet: a frame turned in place by the gunner's aim, ranged by the elevation, fired by
 // releasing the arm (its baked fire clip), the stone loosed from the sling at the release, the crew reloading by the winch
 static bool trebKind(const std::string& k) { return k == "trebuchet"; }
-// the launch speed that carries a stone from h m above the ground to range R m at deg degrees (flat ground, g)
-static float trebSpeed(float R, float h, float deg, float g = 9.81f) {
-  const float c = std::cos(radians(deg)), sn = std::sin(radians(deg)); float lo = 1, hi = 200;
-  for (int k = 0; k < 40; ++k) { const float v = 0.5f * (lo + hi), t = (v * sn + std::sqrt(v * v * sn * sn + 2 * g * std::max(0.0f, h))) / g; (v * c * t < R ? lo : hi) = v; }
-  return 0.5f * (lo + hi);
-}
-static float trebRange(const StationDef& d, float elev) { const float u = (elev - d.elevMin) / std::max(1e-3f, d.elevMax - d.elevMin); return glm::mix(d.rangeMin, d.rangeMax, std::clamp(u, 0.0f, 1.0f)); }
+// TRE2: the launch speed for an elevation: speed0 at 0 (the user's approved 30 m/s at 40 deg), speedLo / speedHi at the stops
+static float trebShotSpeed(const StationDef& d, float elev) { return elev >= 0 ? glm::mix(d.speed0, d.speedHi, std::clamp(elev / std::max(1e-3f, d.elevMax), 0.0f, 1.0f)) : glm::mix(d.speed0, d.speedLo, std::clamp(elev / std::min(-1e-3f, d.elevMin), 0.0f, 1.0f)); }
 static float approach(float v, float t, float rate);
 // the carriage's speed along its +z after dt: the handler's push (tgt) builds slowly (it is heavy); otherwise the recoil's
 // braking above walking pace, then rolling resistance
@@ -60,6 +55,7 @@ static float crewFloor(float terrainY, vec3 a) {
   if (Physics::castRayEx(vec3(a.x, std::max(a.y, terrainY) + 1.2f, a.z), vec3(0, -1, 0), 1.9f, h) && h.pos.y > terrainY + 0.02f) return h.pos.y;
   return terrainY;
 }
+static vec3 gunnerAt(const InstanceRT& r) { return r.st.side && r.asset->station.twoSides ? r.asset->station.gunner2 : r.asset->station.gunner; }   // TRE2
 static float approach(float v, float t, float rate) { float d = t - v; float s = rate; return std::fabs(d) <= s ? t : v + (d > 0 ? s : -s); }
 
 StationRT* App::station(uint64_t id) {
@@ -120,8 +116,12 @@ bool App::stationCamera(vec3& eye, vec3& fwd, float& fov) const {
   const StationDef& s = r.asset->station;
   vec3 se = s.optic - s.elevPivot, sf; fov = s.sightFov;   // PaK 40 ZF 3x8: 8 deg real field fills the eyepiece circle (9); others from the asset
   if (s.kind == "mg42") mg42MountSight(*this, se, sf, fov);   // the handheld MG 42's ADS eye and FOV
+  if (cannonKind(s.kind) && s.hasAimEye) se = s.aimEye;   // TRE3: above and behind the breech, along the top of the tube (the barrel in the lower third, the muzzle ahead)
   eye = vec3(e * vec4(se, 1));
-  if (cannonKind(s.kind) || trebKind(s.kind)) eye = vec3(b * vec4(s.optic, 1));   // CAN1: the gunner's eye stays behind the breech, the view along the tube (TRE1: behind the frame, pitched by the range)
+  if (trebKind(s.kind)) {   // TRE2: from the operator's side, at eye height, along the frame, looking a little up for the longer shots
+    eye = vec3(b * vec4((r.st.side ? s.gunner2 : s.gunner) + vec3(0, 1.65f, 0), 1));
+    fwd = glm::normalize(yawQuat(r.st.carYaw) * vec3(0, std::sin(radians(6.0f + 0.6f * r.st.elev)), std::cos(radians(6.0f + 0.6f * r.st.elev)))); return true;
+  }   // CAN1 / TRE2: a cannon's eye rides the tube behind the breech (optic in the elevation frame), the barrel in view pointing at the target
   fwd = glm::normalize(vec3(e * vec4(0, 0, 1, 0)));
   return true;
 }
@@ -202,7 +202,7 @@ void App::resetCrate(const Instance& i) {   // a crate's authored stock (also fo
 
 vec3 App::stationAnchor(uint64_t id, int pos) {
   Instance* inst = doc.find(id); auto& r = rt[id];
-  vec3 a = vec3(stationMatrix(*inst, r) * vec4(pos == ST_HANDLER ? r.asset->station.handler : r.asset->station.gunner, 1));
+  vec3 a = vec3(stationMatrix(*inst, r) * vec4(pos == ST_HANDLER ? r.asset->station.handler : gunnerAt(r), 1));
   a.y = crewFloor(terrain.height(a.x, a.z), a);
   return a;
 }
@@ -216,7 +216,11 @@ bool App::occupyStation(uint64_t id, int pos) {
   if (pos == ST_HANDLER && mgKind(rt[id].asset->station.kind)) { toast("The " + rt[id].asset->name + " is crewed from the grips only (Aim)."); return false; }
   if (pos == ST_HANDLER && rt[id].asset->station.fixed) { toast(rt[id].asset->station.label + ": a dug-in emplacement - crew it from the gunner's position (Aim); it is not moved."); return false; }
   auto& r = rt[id];
-  vec3 anchor = vec3(stationMatrix(*inst, r) * vec4(pos == ST_HANDLER ? r.asset->station.handler : r.asset->station.gunner, 1));
+  if (r.asset->station.twoSides) {   // TRE2: the operator position nearer the player
+    const mat4 SM = stationMatrix(*inst, r); const vec3 e = eyePos();
+    s->side = glm::length(vec3(SM * vec4(r.asset->station.gunner2, 1)) - e) < glm::length(vec3(SM * vec4(r.asset->station.gunner, 1)) - e) ? 1 : 0;
+  }
+  vec3 anchor = vec3(stationMatrix(*inst, r) * vec4(pos == ST_HANDLER ? r.asset->station.handler : gunnerAt(r), 1));
   anchor.y = crewFloor(terrain.height(anchor.x, anchor.z), anchor);
   if (Physics::capsuleBlocked(anchor + vec3(0, 0.1f, 0), Physics::standHeight() - 0.1f, Physics::radius())) { toast("Cannot take that position: it is obstructed."); return false; }
   occupied = id; choiceFor = 0;
@@ -235,7 +239,7 @@ void App::leaveStation() {
     auto& r = rt[occupied];
     mat4 M = stationMatrix(*inst, r);
     // valid dismount point: the position's anchor, else search around the carriage
-    vec3 cands[] = {r.asset->station.gunner, r.asset->station.handler, vec3(-1.6f, 0, -0.5f), vec3(1.6f, 0, -0.5f), vec3(0, 0, -4.0f), vec3(-1.8f, 0, 1.0f), vec3(1.8f, 0, 1.0f)};
+    vec3 cands[] = {gunnerAt(r), r.asset->station.handler, vec3(-1.6f, 0, -0.5f), vec3(1.6f, 0, -0.5f), vec3(0, 0, -4.0f), vec3(-1.8f, 0, 1.0f), vec3(1.8f, 0, 1.0f)};
     for (auto& c : cands) {
       vec3 p = vec3(M * vec4(c, 1)); p.y = crewFloor(terrain.height(p.x, p.z), p);
       if (!Physics::capsuleBlocked(p + vec3(0, 0.1f, 0), Physics::standHeight() - 0.1f, Physics::radius())) { Physics::setCharacterPos(p); break; }
@@ -256,7 +260,7 @@ void App::switchStationPosition() {
   if (s->pos2 == ST_GUNNER) { s->pos2 = ST_TO_MOVE; s->trans = can ? 0.5f : 1.2f; s->reload = 0; s->status = "Leaving the sight, lifting the trails..."; audio.play("gun_move", s->pos); }
   else if (s->pos2 == ST_HANDLER) {
     if (s->deployed) {   // to Aim
-      vec3 a = vec3(stationMatrix(*inst, r) * vec4(r.asset->station.gunner, 1)); a.y = crewFloor(terrain.height(a.x, a.z), a);
+      vec3 a = vec3(stationMatrix(*inst, r) * vec4(gunnerAt(r), 1)); a.y = crewFloor(terrain.height(a.x, a.z), a);
       Physics::setCharacterPos(a);
       s->pos2 = ST_GUNNER; s->armed = false; s->status = "";
     } else {
@@ -522,7 +526,7 @@ void App::stepStation(float dt, const ExploreInput& in) {
       else if (s->loaded > 0 && s->reload <= 0) stationShoot(occupied, -1);
       else audio.play("click", vec3(M[3]), 0.6f);
     }
-    vec3 a = vec3(M * vec4(d.gunner, 1)); a.y = crewFloor(terrain.height(a.x, a.z), a);
+    vec3 a = vec3(M * vec4(gunnerAt(r), 1)); a.y = crewFloor(terrain.height(a.x, a.z), a);
     Physics::setCharacterPos(a);
   } else if (s->pos2 == ST_HANDLER && !s->deployed && s->trans <= 0 && !(cannonKind(d.kind) && R.perf.cannons)) {
     // reposition: slow, short, swept against structures and checked for ground support
@@ -540,7 +544,7 @@ void App::stepStation(float dt, const ExploreInput& in) {
     vec3 a = vec3(M * vec4(d.handler, 1)); a.y = crewFloor(terrain.height(a.x, a.z), a);
     Physics::setCharacterPos(a);
   } else {
-    vec3 a = vec3(M * vec4(s->pos2 == ST_GUNNER ? d.gunner : d.handler, 1)); a.y = crewFloor(terrain.height(a.x, a.z), a);
+    vec3 a = vec3(M * vec4(s->pos2 == ST_GUNNER ? gunnerAt(r) : d.handler, 1)); a.y = crewFloor(terrain.height(a.x, a.z), a);
     Physics::setCharacterPos(a);
   }
   s->recoilT += dt;
@@ -593,6 +597,41 @@ vec3 App::trebuchetStone(const Instance& i, const InstanceRT& r) const {
   }
   return vec3(b * vec4(r.asset->station.muzzle, 1));
 }
+vec3 App::trebuchetRelease(const Instance& i, const InstanceRT& r, vec3& dir, float& speed) const {   // TRE2: where, which way and how fast the stone leaves
+  const StationDef& d = r.asset->station; InstanceRT at = r; at.st.treb = 1; at.st.trebT = d.trebRelease;
+  const vec3 fw = yawQuat(r.st.carYaw) * vec3(0, 0, 1); dir = glm::normalize(fw * std::cos(radians(d.launchDeg)) + vec3(0, std::sin(radians(d.launchDeg)), 0));
+  speed = trebShotSpeed(d, r.st.elev); return trebuchetStone(i, at);
+}
+// TRE3: is a point of the trajectory line hidden from the eye: behind one of the gun's own parts (their boxes, posed as
+// drawn: the carriage, the tube at its elevation, the trebuchet's arm on its timeline) or behind the world (its colliders)
+bool App::arcHidden(const Instance& i, const InstanceRT& r, vec3 eye, vec3 p) const {
+  const vec3 d = p - eye; const float L = glm::length(d); if (L < 0.1f) return false; const vec3 u = d / L;
+  if (const GpuModel* gm = r.asset->model.get()) {
+    mat4 b, y, e, rc; stationParts(i, r, b, y, e, rc); const StationDef& sd = r.asset->station; const auto& role = sd.modelRole;
+    for (size_t k = 0; k < gm->parts.size() && k < role.size(); ++k) {
+      mat4 M = role[k] == 2 || role[k] == 3 ? e * glm::translate(mat4(1), -sd.elevPivot) : b;
+      if (role[k] == 6 || role[k] == 7) { if (role[k] == 7) continue; M = b * gm->animAt((int)k, gm->animDuration > 0 ? trebuchetClipTime(r) / gm->animDuration : 0.0f); }
+      if (role[k] == 8 || role[k] == 5) continue;
+      const vec3 c = vec3(M * vec4((gm->parts[k].bmin + gm->parts[k].bmax) * 0.5f, 1)), he = (gm->parts[k].bmax - gm->parts[k].bmin) * 0.5f; float t;
+      const vec3 le = glm::inverse(glm::quat_cast(glm::mat3(M))) * (eye - c); if (std::fabs(le.x) < he.x && std::fabs(le.y) < he.y && std::fabs(le.z) < he.z) continue;   // TRE4: the eye inside a part's box (the muzzle eye)
+      if (rayOBB(eye, u, c, he, glm::quat_cast(glm::mat3(M)), t) && t > 0 && t < L - 0.05f) return true;
+    }
+  }
+  Physics::Hit h; return Physics::castRayEx(eye, u, L, h, coreUD(i.id)) && h.t < L - 0.3f;
+}
+// TRE2: the aimed shot's path as stepProjectiles flies it (Euler at 120 Hz, g x the shot's gravity factor, no drag), from
+// `from` until the first thing it would strike (the gun itself ignored), the ground, or the projectile's 9 s life
+std::vector<vec3> App::shotArc(vec3 from, vec3 v, float grav, uint64_t ignore, vec3* hitPos, float* tOut, uint64_t* hitUd) const {
+  std::vector<vec3> pts{from}; vec3 p = from; const float h = 1.0f / 120;
+  for (float t = 0; t < 9.0f; t += h) {
+    const vec3 seg = v * h; Physics::Hit hit;
+    if (Physics::castRayEx(p, seg, glm::length(seg), hit, ignore)) { pts.push_back(hit.pos); if (hitPos) *hitPos = hit.pos; if (tOut) *tOut = t + h * hit.t / std::max(1e-6f, glm::length(seg)); if (hitUd) *hitUd = hit.ud; return pts; }
+    p += seg; v.y -= 9.81f * grav * h;
+    if (((int)std::lround(t / h)) % 6 == 0) pts.push_back(p);   // a point every 50 ms is smooth on screen
+    if (p.y < -100) break;
+  }
+  pts.push_back(p); if (hitPos) *hitPos = p; if (tOut) *tOut = 9.0f; if (hitUd) *hitUd = 0; return pts;
+}
 void App::trebuchetStep(float dt) {
   for (auto& i : doc.instances) {
     auto it = rt.find(i.id); if (it == rt.end() || !it->second.asset || !trebKind(it->second.asset->station.kind)) continue;
@@ -642,10 +681,8 @@ void App::stationShoot(uint64_t id, int owner) {
     fx.muzzleFlash(muzzle + dir * 0.03f, dir, mg42 ? 1.5f : 1.9f, false, muzzle, vec3(-1), mg42 ? "7.92x57 mm" : "12.7x99 mm");   // WP4
     audio.play(mg42 ? "shot_mg42" : "shot_m2hb", muzzle, 1.0f);
   } else if (trebKind(d.kind)) {   // TRE1: the stone from the sling, forward on the launch arc, its speed for the set range
-    start = trebuchetStone(*inst, r);
-    const float h = start.y - terrain.height(start.x, start.z), Rg = trebRange(d, s->elev);
-    const vec3 fw = yawQuat(s->carYaw) * vec3(0, 0, 1); dir = glm::normalize(fw * std::cos(radians(d.launchDeg)) + vec3(0, std::sin(radians(d.launchDeg)), 0));
-    fireProjectile(start, dir, trebSpeed(Rg, h, d.launchDeg), PROJ_HE, d.heDamage, coreUD(inst->id), false, d.ammo);
+    float sp; start = trebuchetRelease(*inst, r, dir, sp);
+    fireProjectile(start, dir, sp, PROJ_HE, d.heDamage, coreUD(inst->id), false, d.ammo);
     Projectile& p = projectiles.back(); p.atKill = true; p.blastR = d.heRadius; p.craterScale = d.heCrater; p.gravScale = 1.0f;
     p.cannonBall = true;   // CW4: a siege stone breaches a rampart bay as round shot does (WALL_CANNON)
     p.mesh = d.ballModel.get();
@@ -749,18 +786,27 @@ void App::drawCombatUI() {
   vec3 ie, ifr; float ifov;
   bool irons = d.kind == "mg42" && mg42MountSight(*this, ie, ifr, ifov);   // aimed over the gun's own sights, as handheld: no dot
   if (s->pos2 == ST_GUNNER && (mgKind(d.kind) || cannonKind(d.kind) || trebKind(d.kind)) && !irons) dl->AddCircleFilled(c, 2.5f, IM_COL32(240, 240, 230, 200));   // CAN1: the cannon's aim: the small white dot
-  if (s->pos2 == ST_GUNNER && trebKind(d.kind)) {   // TRE1: range, phase, and the stone's landing spot marked on the ground
-    char e[96]; std::snprintf(e, sizeof e, "Range %.0f m   %s", trebRange(d, s->elev), s->treb == 1 ? "LOOSED" : s->treb == 3 ? "WINCHING" : s->loaded > 0 ? "READY" : "NO STONES");
-    dl->AddText(ImVec2(c.x + 14, c.y + 12), IM_COL32(240, 240, 230, 220), e);
-    if (Instance* ti = doc.find(occupied)) {
-      const vec3 st = trebuchetStone(*ti, r), fw = yawQuat(s->carYaw) * vec3(0, 0, 1); const float Rg = trebRange(d, s->elev);
-      vec3 hit = vec3(st.x, 0, st.z) + fw * Rg; hit.y = terrain.height(hit.x, hit.z) + 0.1f;
-      vec4 cc = projM * viewM * vec4(hit, 1);
-      if (cc.w > 0.1f) { ImVec2 hp((cc.x / cc.w * 0.5f + 0.5f) * io.DisplaySize.x, (0.5f - cc.y / cc.w * 0.5f) * io.DisplaySize.y); dl->AddCircle(hp, 9, IM_COL32(255, 210, 120, 230), 20, 2); dl->AddCircleFilled(hp, 2, IM_COL32(255, 210, 120, 230)); }
+  if (s->pos2 == ST_GUNNER && (trebKind(d.kind) || cannonKind(d.kind))) if (Instance* ti = doc.find(occupied)) {   // TRE2: the aimed shot's arc to where it lands, a ring there
+    vec3 from, dir, land; float sp; std::vector<vec3> arc; float skip = 0;
+    if (trebKind(d.kind)) { from = trebuchetRelease(*ti, r, dir, sp); arc = shotArc(from, dir * sp, 1.0f, coreUD(ti->id), &land); }
+    else { mat4 b0, y0, e0, rc0; stationParts(*ti, r, b0, y0, e0, rc0); const vec3 bore = d.muzzle - d.elevPivot; vec3 md; const vec3 mz = stationMuzzle(*ti, r, md);
+      from = vec3(e0 * vec4(bore.x, bore.y, 0, 1)); dir = glm::normalize(vec3(e0 * vec4(0, 0, 1, 0))); sp = d.heVelocity; skip = glm::length(mz - from) + 2.0f;   // as stationShoot: from the trunnion plane, drawn from 2 m past the muzzle (TRE4: edge-on from the muzzle eye before that)
+      arc = shotArc(from, dir * sp, d.heGravity, coreUD(ti->id), &land); }
+    const float rng = glm::length(vec2(land.x - from.x, land.z - from.z));
+    char e[112]; std::snprintf(e, sizeof e, trebKind(d.kind) ? "Range %.0f m  (%.0f m/s)   %s" : "Range %.0f m", rng, sp, s->treb == 1 ? "LOOSED" : s->treb == 3 ? "WINCHING" : s->loaded > 0 ? "READY" : "NO STONES");
+    if (trebKind(d.kind)) dl->AddText(ImVec2(c.x + 14, c.y + 12), IM_COL32(240, 240, 230, 220), e);
+    if (R.perf.trajLine && arc.size() > 1) {
+      const mat4 vp = projM * viewM; auto scr = [&](vec3 w, ImVec2& o) { vec4 cc = vp * vec4(w, 1); if (cc.w < 0.05f) return false; o = ImVec2((cc.x / cc.w * 0.5f + 0.5f) * io.DisplaySize.x, (0.5f - cc.y / cc.w * 0.5f) * io.DisplaySize.y); return true; };
+      std::vector<ImVec2> pl; float run = 0; vec3 ce, cf; float cfov; const bool cam = stationCamera(ce, cf, cfov); if (!cam) ce = eyePos();
+      for (size_t k = 0; k < arc.size(); ++k) { if (k) run += glm::length(arc[k] - arc[k - 1]); if (run < skip) continue; ImVec2 q; if (scr(arc[k], q) && !arcHidden(*ti, r, ce, arc[k])) pl.push_back(q); else if (pl.size() > 1) { dl->AddPolyline(pl.data(), (int)pl.size(), IM_COL32(255, 236, 170, 210), 0, 2.0f); pl.clear(); } }
+      if (pl.size() > 1) dl->AddPolyline(pl.data(), (int)pl.size(), IM_COL32(255, 236, 170, 210), 0, 2.0f);
+      std::vector<ImVec2> ring; for (int k = 0; k <= 24; ++k) { const float a = k * 6.2831853f / 24; ImVec2 q; vec3 w = land + vec3(std::cos(a), 0, std::sin(a)) * std::max(1.5f, d.heRadius * 0.5f); w.y = std::max(land.y, terrain.height(w.x, w.z)) + 0.05f; if (scr(w, q)) ring.push_back(q); }
+      if (ring.size() > 2) dl->AddPolyline(ring.data(), (int)ring.size(), IM_COL32(255, 200, 110, 235), 0, 2.5f);
+      ImVec2 q; if (scr(land, q)) dl->AddCircleFilled(q, 3, IM_COL32(255, 200, 110, 235));
     }
   }
   if (s->pos2 == ST_GUNNER && cannonKind(d.kind)) { char e[64]; std::snprintf(e, sizeof e, "Elevation %+.0f\xC2\xB0%s", s->elev, s->fuse >= 0 ? "   FUSE LIT" : ""); dl->AddText(ImVec2(c.x + 14, c.y + 12), IM_COL32(240, 240, 230, 220), e); }
-  if (s->pos2 == ST_GUNNER && !mgKind(d.kind) && !cannonKind(d.kind)) {
+  if (s->pos2 == ST_GUNNER && !mgKind(d.kind) && !cannonKind(d.kind) && !trebKind(d.kind)) {
     // TZF-style optic: the eyepiece, its soft black surround and the reticle are drawn by the renderer (render.cpp
     // eyepiece pass); the shell / traverse / elevation readout sits at the bottom right of the eyepiece
     float R = io.DisplaySize.y * kGunnerEyepieceR;
@@ -834,6 +880,13 @@ int cannonSelfCheck() {
     ok(std::fabs(-x - rc) < 0.05f * rc + 0.01f, n + " rolls back " + std::to_string(-x).substr(0, 4) + " m (recoil " + std::to_string(rc).substr(0, 4) + ")");
     v = 0; float t = 0; while (v < push - 1e-3f && t < 10) { v = cannonSpeed(v, push, push, 1.0f / 120); t += 1.0f / 120; }
     ok(t >= 1.5f && t <= 3.0f, n + " a push reaches walking pace in " + std::to_string(t).substr(0, 4) + " s");
+    {   // TRE3: the gunner's spot is clear of the gun's own collider boxes by the player's radius (the mortar's refused every crew)
+      const vec3 g = jvec3(st["gunner"]); float gap = 1e9f;
+      for (auto& pj : j.value("parts", json::array())) { const vec3 c = jvec3(pj["c"]), h = jvec3(pj["s"]) * 0.5f; const vec2 q(std::max(0.0f, std::fabs(g.x - c.x) - h.x), std::max(0.0f, std::fabs(g.z - c.z) - h.z)); gap = std::min(gap, glm::length(q)); }
+      ok(gap >= Physics::radius() + 0.02f, n + " the gunner's spot clears the carriage by " + std::to_string(gap).substr(0, 4) + " m (player radius " + std::to_string(Physics::radius()).substr(0, 4) + ")");
+      const float mzz = st["muzzle"][2].get<float>() - st["elevPivot"][2].get<float>();   // TRE4 (the user): the eye at the muzzle, just above the bore, looking down the shot
+      ok(st.contains("aimEye") && st["aimEye"][1].get<float>() > 0.1f && st["aimEye"][1].get<float>() < 0.4f && std::fabs(st["aimEye"][2].get<float>() - mzz) < 0.4f, n + " the aiming eye sits at the muzzle, just above the bore");
+    }
   }
   std::printf("[can1] %s (%d failed)\n", fails ? "FAIL" : "PASS", fails);
   return fails ? 1 : 0;
@@ -859,15 +912,19 @@ int trebuchetSelfCheck() {
   if (stone < 0 || samples < 2) { std::printf("[tre1] FAIL (%d failed)\n", fails + 1); return 1; }
   const json& sp = m["parts"][stone]; const vec3 c = (jvec3(sp["bmin"]) + jvec3(sp["bmax"])) * 0.5f;
   auto at = [&](float t) { const float f = std::clamp(t / dur, 0.0f, 1.0f) * (samples - 1); const size_t i = std::min(samples - 1, (size_t)std::lround(f)); mat4 M; for (int q = 0; q < 16; ++q) glm::value_ptr(M)[q] = sp["anim"][i][q].get<float>(); return vec3(M * vec4(c, 1)); };
-  const vec3 p0 = at(release), pv = at(release - 0.1f); const float h = p0.y, v = glm::length(p0 - pv) / 0.1f;
-  ok(h > 5.0f && v > 8.0f && at(0).y < 3.5f, "the stone at the release: " + std::to_string(h).substr(0, 4) + " m up, moving " + std::to_string(v).substr(0, 4) + " m/s (" + std::to_string(at(0).y).substr(0, 4) + " m up in the pouch)");
-  const float deg = tj.value("launchDeg", 45.0f); float worst = 0, err = 0;
-  for (float R = tj.value("rangeMin", 60.0f); R <= tj.value("rangeMax", 260.0f) + 1e-3f; R += 20) {   // flown as stepProjectiles flies it (2 x 60 Hz substeps)
-    const float s0 = trebSpeed(R, h, deg); vec3 p(0, h, 0), w(0, s0 * std::sin(radians(deg)), s0 * std::cos(radians(deg))); float t = 0;
+  const vec3 p0 = at(release), pv = at(release + 0.2f); const float h = p0.y, v = glm::length(pv - p0) / 0.2f;   // TRE2: the clip's own flight just after the release (the game flies its aimed stone from here)
+  ok(h > 5.0f && v > 20.0f && pv.z > p0.z && at(0).y < 3.5f, "the stone at the release (forward, +z): " + std::to_string(h).substr(0, 4) + " m up, moving " + std::to_string(v).substr(0, 4) + " m/s (" + std::to_string(at(0).y).substr(0, 4) + " m up in the pouch)");
+  // TRE2: the throw by elevation: speed0 at 0 (the approved 30 m/s at 40 deg), speedLo / speedHi at the stops; each flown as
+  // the shot (shotArc's integration) over flat ground from the release height lands inside the 9 s life
+  const float deg = tj.value("launchDeg", 40.0f); const json& spd = tj["speed"]; float worst = 0, rr[3] = {0, 0, 0};
+  for (int q = 0; q < 3; ++q) {
+    const float s0 = spd[q].get<float>(); vec3 p(0, h, 0), w(0, s0 * std::sin(radians(deg)), s0 * std::cos(radians(deg))); float t = 0;
     while (p.y > 0 && t < 30) { const float dt = 1.0f / 120; p += w * dt; w.y -= 9.81f * dt; t += dt; }
-    worst = std::max(worst, t); err = std::max(err, std::fabs(p.z - R) / R);
+    worst = std::max(worst, t); rr[q] = p.z;
   }
-  ok(err < 0.02f && worst < 9.0f, "ranges " + std::to_string((int)tj.value("rangeMin", 60.0f)) + "-" + std::to_string((int)tj.value("rangeMax", 260.0f)) + " m land within " + std::to_string(err * 100).substr(0, 4) + " % (longest flight " + std::to_string(worst).substr(0, 4) + " s of the 9 s life)");
+  ok(spd.size() == 3 && std::fabs(spd[1].get<float>() - 30) < 1e-3f && std::fabs(deg - 40) < 1e-3f && rr[0] < rr[1] && rr[1] < rr[2] && worst < 9.0f,
+     "the throw: 30 m/s at 40 deg lands " + std::to_string((int)rr[1]) + " m out; the elevation spans " + std::to_string((int)rr[0]) + "-" + std::to_string((int)rr[2]) + " m (longest flight " + std::to_string(worst).substr(0, 4) + " s of the 9 s life)");
+  ok(j["station"].contains("gunner2") && st["gunner"][0].get<float>() * st["gunner2"][0].get<float>() < 0, "worked from either side of the frame");
   const json& he = st["shellHE"]; ok(he.value("damage", 0.0f) >= 200 && he.value("radius", 0.0f) >= 4, "the stone: " + std::to_string((int)he.value("damage", 0.0f)) + " damage within " + std::to_string(he.value("radius", 0.0f)).substr(0, 3) + " m");
   std::printf("[tre1] %s (%d failed)\n", fails ? "FAIL" : "PASS", fails);
   return fails ? 1 : 0;

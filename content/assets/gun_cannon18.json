@@ -147,7 +147,8 @@
   "pushSpeed": 0.9,
   "label": "18th-century field cannon",
   "heName": "Round shot",
-  "sightFov": 60,
+  "sightFov": 34,
+  "aimEye": [0, 0.27, 1.3],
   "muzzleScale": 1.6,
   "fireSound": "pak_fire",
   "shellHE": {
