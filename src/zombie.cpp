@@ -1122,7 +1122,7 @@ int ar1SelfCheck() {
   {   // KD1: knights' deaths vary: every death clip a knight type lists is in each of its GLBs (models here), and 24 deaths of one type
     // (neighbouring slots, mixed hit directions) play more than one clip; a head hit picks a headshot clip where the model has one
     const char* ids[] = {"knight", "knight4", "knight5", "knight6", "knight7", "knight8", "knight9", "knight10", "knight10e_foot", "knight_spear", "paladin", "paladin2",
-                         "samurai", "crusader", "chinese_soldier", "fallen_knight1", "fallen_knight2", "imperial_yari", "imperial_gilded", "imperial_moon"};
+                         "samurai", "crusader", "chinese_soldier", "fallen_knight1", "fallen_knight2", "imperial_yari", "imperial_gilded", "imperial_spear"};
     int types = 0, models = 0, bad = 0; std::string worst;
     for (const char* id : ids) {
       int k = enemyTypeIndex(id); if (k < 0 && std::string(id).rfind("imperial_", 0) == 0) continue;   // IS1 types: local-only until committed
@@ -1223,7 +1223,7 @@ int ar1SelfCheck() {
     int ik = enemyTypeIndex("imperial_archer"), a1 = enemyTypeIndex("archer1"), iy = enemyTypeIndex("imperial_yari"); bool ok = ik >= 0 && a1 >= 0 && iy >= 0, inMix = false, arrow = false, str = false; std::set<std::string> names;
     for (auto& [id, w] : zcfg().assorted) inMix = inMix || id == "imperial_archer";
     if (ok) { const EnemyType& t = enemyType(ik), &k = enemyType(a1); ok = t.hp == k.hp && t.attackClips == k.attackClips && t.deathClips == k.deathClips && t.sndAttack.empty() && t.model == "chinese_imperial_archer" && !inMix
-        && t.attackSpecs.size() == k.attackSpecs.size() && t.attackSpecs[0].shoot && std::fabs(t.attackSpecs[0].swing - k.attackSpecs[0].swing) < 1e-4f && std::fabs(t.height - enemyType(iy).height) < 1e-4f;
+        && t.attackSpecs.size() == k.attackSpecs.size() && t.attackSpecs[0].shoot && std::fabs(t.attackSpecs[0].swing - k.attackSpecs[0].swing) < 1e-4f && std::fabs(t.height - 2.118f) < 1e-3f && iy >= 0;   // IS2: the archer keeps the old helmet (rest top 1.823): head joint 1.82 m at 2.118
       std::ifstream f(contentDir() / "characters" / (t.model + ".glb"), std::ios::binary); std::string g(20, 0); f.read(g.data(), 20); uint32_t nn = 0;
       if (f.gcount() == 20) { std::memcpy(&nn, g.data() + 12, 4); std::string js(nn, 0); f.read(js.data(), nn); json J; try { J = json::parse(js); } catch (...) {} for (auto& x : J.value("animations", json::array())) names.insert(x.value("name", std::string()));
         for (auto& n : J.value("nodes", json::array())) { const std::string nm = n.value("name", std::string()); arrow = arrow || nm == "mixamorig:Arrow"; str = str || nm == "mixamorig:BowString"; } }
