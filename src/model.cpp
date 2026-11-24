@@ -30,7 +30,7 @@ ImportSpec importSpecFromJson(const json& j) {
   json np = j.value("nodeParts", json::object()), hd = j.value("hide", json::array());   // keep the temporaries alive
   for (auto& [k, v] : np.items()) s.nodeParts[k] = v.get<std::string>();
   for (auto& h : hd) s.hide.push_back(h.get<std::string>());
-  s.maxTex = j.value("maxTex", 1024); s.jpgMaps = j.value("jpgMaps", false);
+  s.maxTex = j.value("maxTex", 1024); s.jpgMaps = j.value("jpgMaps", false); s.animFps = j.value("animFps", 0.0f);   // TRE1
   s.matOverride = j.value("matOverride", json::object());
   s.tint = jvec3(j.value("tint", json()), vec3(1));
   for (auto& e : j.value("meshEdits", json::array())) {
@@ -360,7 +360,7 @@ bool bakeGlbModel(const fs::path& glbPath, const ImportSpec& spec, const fs::pat
       if (x.path == "translation" || x.path == "rotation" || x.path == "scale") chs.push_back(std::move(x));
     }
     if (duration > 0) {
-      const int NS = 96;
+      const int NS = spec.animFps > 0 ? std::max(2, (int)std::ceil(duration * spec.animFps) + 1) : 96;   // TRE1: the trebuchet's 19 s timeline at 30 / s
       std::set<int> animated; for (auto& ch : chs) animated.insert(ch.node);
       for (size_t p = 0; p < prims.size(); ++p) {
         bool any = false; for (int a = prims[p].node; a >= 0; a = parent[a]) if (animated.count(a)) any = true;

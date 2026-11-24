@@ -1,0 +1,188 @@
+{
+ "id": "gun_trebuchet",
+ "version": 1,
+ "name": "Counterweight trebuchet",
+ "category": "Field guns",
+ "description": "A counterweight trebuchet (the user's own model; CC0 textures). Crew it from the gunner (Aim): turn the frame slowly with the aim, set the range with the elevation (60 to 260 m), Fire knocks out the trigger: the arm swings and the sling looses the stone on a high arc; it crushes what it lands on (area damage) and breaches rampart bays like round shot. The crew winches the arm back down and loads the next stone (about 10 s). Twenty stones. Emplaced: it is not moved. Game values.",
+ "floors": 0,
+ "enterable": false,
+ "footprint": [
+  4.0,
+  8.8
+ ],
+ "plinthDepth": 0,
+ "maxGrade": 0.35,
+ "noAutoPanels": true,
+ "materials": [
+  {
+   "name": "wood",
+   "albedo": [
+    0.36,
+    0.27,
+    0.17
+   ],
+   "roughness": 0.85,
+   "pattern": "wood",
+   "metallic": 0,
+   "grain": 1
+  }
+ ],
+ "parts": [
+  {
+   "t": "b",
+   "c": [
+    0,
+    0.35,
+    0.25
+   ],
+   "s": [
+    4.2,
+    0.7,
+    9.1
+   ],
+   "m": "wood",
+   "v": 0
+  },
+  {
+   "t": "b",
+   "c": [
+    0,
+    2.7,
+    1.05
+   ],
+   "s": [
+    3.6,
+    5.4,
+    1.7
+   ],
+   "m": "wood",
+   "v": 0
+  }
+ ],
+ "model": {
+  "src": "trebuchet.glb",
+  "dir": "trebuchet",
+  "pivot": "ground",
+  "scale": 1,
+  "rot": [
+   0,
+   180,
+   0
+  ],
+  "maxTex": 1024,
+  "animFps": 30,
+  "stationRoles": {
+   "Treb_Arm": "anim",
+   "Treb_CW": "anim",
+   "Treb_Sling": "anim",
+   "Treb_Winch": "anim",
+   "Treb_Stone": "stone",
+   "RopeEnd": "rope"
+  },
+  "jpgMaps": true
+ },
+ "models": [
+  {
+   "dir": "trebuchet_stone",
+   "bake": {
+    "src": "trebuchet.glb",
+    "pivot": "weapon",
+    "scale": 1,
+    "rot": [
+     0,
+     180,
+     0
+    ],
+    "lod1": 0,
+    "maxTex": 512,
+    "hide": [
+     "Treb_Arm",
+     "Treb_CW",
+     "Treb_Sling",
+     "Treb_Winch",
+     "Treb_Root",
+     "Treb_Rope"
+    ]
+   }
+  }
+ ],
+ "station": {
+  "kind": "trebuchet",
+  "fixed": true,
+  "label": "Trebuchet",
+  "heName": "Stone",
+  "yawPivot": [
+   0,
+   0,
+   0
+  ],
+  "elevPivot": [
+   0,
+   0,
+   0
+  ],
+  "muzzle": [
+   0,
+   2.5,
+   -4.6
+  ],
+  "optic": [
+   0,
+   3.2,
+   -8.0
+  ],
+  "gunner": [
+   2.8,
+   0,
+   -2.0
+  ],
+  "handler": [
+   2.8,
+   0,
+   -2.0
+  ],
+  "traverse": [
+   -90,
+   90
+  ],
+  "elevation": [
+   -5,
+   15
+  ],
+  "traverseRate": 3,
+  "elevateRate": 6,
+  "recoil": 0,
+  "reloadTime": 9.96,
+  "loaded": 1,
+  "reserve": 19,
+  "ammo": "trebuchet_stone",
+  "moveHalf": [
+   2.15,
+   2.7,
+   4.6
+  ],
+  "serviceRadius": 8,
+  "sightFov": 60,
+  "muzzleScale": 0,
+  "fireSound": "bolt",
+  "ball": "trebuchet_stone",
+  "shellHE": {
+   "velocity": 45,
+   "damage": 300,
+   "radius": 5.0,
+   "crater": 1.2,
+   "gravity": 1.0
+  },
+  "trebuchet": {
+   "fire": 9.333,
+   "reloadAt": 9.367,
+   "reload": 9.958,
+   "release": 1.458,
+   "stoneBack": 9.458,
+   "rangeMin": 60,
+   "rangeMax": 260,
+   "launchDeg": 45
+  },
+  "note": "TRE1: the model's one timeline (tools/trebuchet/timeline.py): fire 0..9.33 s (the GLB runs at 24 fps: the release at frame 36 = 1.46 s), reload 9.37..19.33 s (the stone back in the pouch 9.46 s in). Range by the elevation: -5 deg 60 m .. +15 deg 260 m at a 45 deg launch; a 0.34 m stone, 300 damage within 5 m, breaches rampart bays (WALL_CANNON); twenty stones; the frame turns 3 deg/s in place."
+ }
+}

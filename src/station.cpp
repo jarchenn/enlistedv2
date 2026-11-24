@@ -17,6 +17,16 @@ static bool mgKind(const std::string& k) { return k == "m2hb" || k == "mg42"; }
 // CAN1: muzzle-loaders on wheeled carriages (18th-century cannon, mortar): no traverse mount (the gunner's yaw turns the
 // carriage), aimed over the tube at a white dot, fired by a fuse, rolled back by the shot
 static bool cannonKind(const std::string& k) { return k == "cannon"; }
+// TRE1: the counterweight trebuchet: a frame turned in place by the gunner's aim, ranged by the elevation, fired by
+// releasing the arm (its baked fire clip), the stone loosed from the sling at the release, the crew reloading by the winch
+static bool trebKind(const std::string& k) { return k == "trebuchet"; }
+// the launch speed that carries a stone from h m above the ground to range R m at deg degrees (flat ground, g)
+static float trebSpeed(float R, float h, float deg, float g = 9.81f) {
+  const float c = std::cos(radians(deg)), sn = std::sin(radians(deg)); float lo = 1, hi = 200;
+  for (int k = 0; k < 40; ++k) { const float v = 0.5f * (lo + hi), t = (v * sn + std::sqrt(v * v * sn * sn + 2 * g * std::max(0.0f, h))) / g; (v * c * t < R ? lo : hi) = v; }
+  return 0.5f * (lo + hi);
+}
+static float trebRange(const StationDef& d, float elev) { const float u = (elev - d.elevMin) / std::max(1e-3f, d.elevMax - d.elevMin); return glm::mix(d.rangeMin, d.rangeMax, std::clamp(u, 0.0f, 1.0f)); }
 static float approach(float v, float t, float rate);
 // the carriage's speed along its +z after dt: the handler's push (tgt) builds slowly (it is heavy); otherwise the recoil's
 // braking above walking pace, then rolling resistance
@@ -62,7 +72,7 @@ bool App::gunnerOptic() const {
   if (!occupied || mode != Mode::Explore) return false;
   auto it = rt.find(occupied);
   if (it == rt.end() || it->second.asset->station.kind.empty()) return false;
-  return it->second.st.pos2 == ST_GUNNER && !mgKind(it->second.asset->station.kind) && !cannonKind(it->second.asset->station.kind);
+  return it->second.st.pos2 == ST_GUNNER && !mgKind(it->second.asset->station.kind) && !cannonKind(it->second.asset->station.kind) && !trebKind(it->second.asset->station.kind);
 }
 
 mat4 App::stationMatrix(const Instance& i, const InstanceRT& r) const {
@@ -111,7 +121,7 @@ bool App::stationCamera(vec3& eye, vec3& fwd, float& fov) const {
   vec3 se = s.optic - s.elevPivot, sf; fov = s.sightFov;   // PaK 40 ZF 3x8: 8 deg real field fills the eyepiece circle (9); others from the asset
   if (s.kind == "mg42") mg42MountSight(*this, se, sf, fov);   // the handheld MG 42's ADS eye and FOV
   eye = vec3(e * vec4(se, 1));
-  if (cannonKind(s.kind)) eye = vec3(b * vec4(s.optic, 1));   // CAN1: the gunner's eye stays behind the breech, the view along the tube
+  if (cannonKind(s.kind) || trebKind(s.kind)) eye = vec3(b * vec4(s.optic, 1));   // CAN1: the gunner's eye stays behind the breech, the view along the tube (TRE1: behind the frame, pitched by the range)
   fwd = glm::normalize(vec3(e * vec4(0, 0, 1, 0)));
   return true;
 }
@@ -481,12 +491,12 @@ void App::stepStation(float dt, const ExploreInput& in) {
     bool mg = mgKind(d.kind), mg42 = d.kind == "mg42";
     if (mg) { s->yaw = s->yawT; s->elev = s->elevT; }   // a mounted MG swings as freely as the carried gun: no traverse / elevation rate
     else { s->yaw = approach(s->yaw, s->yawT, d.traverseRate * dt); s->elev = approach(s->elev, s->elevT, d.elevateRate * dt); }
-    if (cannonKind(d.kind)) s->yaw = 0;   // CAN1: yawT is the carriage turn still to make (below)
+    if (cannonKind(d.kind) || trebKind(d.kind)) s->yaw = 0;   // CAN1: yawT is the carriage turn still to make (below; TRE1: the frame's, trebuchetStep)
     int full = mg ? std::max(1, d.loaded) : 1;   // one belt: M2HB 110, MG 42 50
     if (!mg && in.toggleAmmo && s->reserveATMax > 0) { s->selAT = !s->selAT; toast(d.label + ": next round " + (s->selAT ? d.atName : d.heName) + " - takes effect at the next reload", 3); }
     int pool = (!mg && s->selAT) ? s->reserveAT : s->reserve;
     const char* loadSnd = mg42 && audio.hasEvent("reload_mg42") ? "reload_mg42" : mg ? "belt" : "breech";   // the handheld MG 42's belt foley
-    if ((in.reload || (cannonKind(d.kind) && s->fuse < 0)) && s->loaded < full && pool > 0 && s->reload <= 0 && (mg || s->loaded == 0)) { s->reload = d.reloadTime; audio.play(loadSnd, vec3(M[3])); }   // CAN1: the cannon's crew reloads by itself
+    if (!trebKind(d.kind) && (in.reload || (cannonKind(d.kind) && s->fuse < 0)) && s->loaded < full && pool > 0 && s->reload <= 0 && (mg || s->loaded == 0)) { s->reload = d.reloadTime; audio.play(loadSnd, vec3(M[3])); }   // CAN1: the cannon's crew reloads by itself
     if (s->reload > 0) {
       s->reload -= dt;
       if (s->reload <= 0) { stationFinishReload(*s, d); audio.play(loadSnd, vec3(M[3])); }
@@ -507,7 +517,8 @@ void App::stepStation(float dt, const ExploreInput& in) {
     }
     if (!mg && fireHeld && s->armed && s->deployed && s->trans <= 0) {
       s->armed = false;
-      if (s->loaded > 0 && s->reload <= 0 && cannonKind(d.kind) && R.perf.cannons) { if (s->fuse < 0) { s->fuse = 0; audio.play("bolt", vec3(M[3]), 0.4f, 1.6f); } }   // CAN1: the match to the fuse
+      if (trebKind(d.kind)) { if (s->loaded > 0 && s->treb == 0) { s->treb = 1; s->trebT = 0; s->trebMine = true; audio.play("impact_wood", vec3(M[3]) + vec3(0, 4.5f, 0), 0.8f, 0.6f); } }   // TRE1: the trigger pin knocked out
+      else if (s->loaded > 0 && s->reload <= 0 && cannonKind(d.kind) && R.perf.cannons) { if (s->fuse < 0) { s->fuse = 0; audio.play("bolt", vec3(M[3]), 0.4f, 1.6f); } }   // CAN1: the match to the fuse
       else if (s->loaded > 0 && s->reload <= 0) stationShoot(occupied, -1);
       else audio.play("click", vec3(M[3]), 0.6f);
     }
@@ -563,6 +574,52 @@ void App::cannonStep(const Instance& inst, InstanceRT& r, float dt, const Explor
   Physics::setTransform(r.staticBody, s->pos, yawQuat(s->carYaw));
 }
 
+// TRE1: every trebuchet's cycle. Fire: the arm swings (the baked clip), the stone leaves at `release` (stationShoot, on the
+// machine whose gunner fired), the arm settles; then the crew winches it down (reload, its own clip) and a stone goes in.
+// The frame turns in place toward the gunner's aim (yawT, traverseRate) where its footprint is clear.
+float App::trebuchetClipTime(const InstanceRT& r) const {
+  const StationDef& d = r.asset->station; const StationRT& s = r.st;
+  return s.treb == 1 ? std::min(s.trebT, d.trebFire) : s.treb == 2 ? d.trebFire : s.treb == 3 ? d.trebReloadAt + std::min(s.trebT, d.trebReload) : 0.0f;
+}
+bool App::trebuchetStoneShown(const InstanceRT& r) const {
+  const StationDef& d = r.asset->station; const StationRT& s = r.st;
+  return !s.wrecked && (s.treb == 0 ? s.loaded > 0 : s.treb == 1 ? s.trebT < d.trebRelease : s.treb == 3 && s.trebT >= d.trebStoneBack);
+}
+vec3 App::trebuchetStone(const Instance& i, const InstanceRT& r) const {
+  const GpuModel* gm = r.asset->model.get(); const auto& role = r.asset->station.modelRole; mat4 b = stationMatrix(i, r);
+  if (gm) for (size_t k = 0; k < gm->parts.size() && k < role.size(); ++k) if (role[k] == 7) {
+    const vec3 c = (gm->parts[k].bmin + gm->parts[k].bmax) * 0.5f;
+    return vec3(b * gm->animAt((int)k, gm->animDuration > 0 ? trebuchetClipTime(r) / gm->animDuration : 0.0f) * vec4(c, 1));
+  }
+  return vec3(b * vec4(r.asset->station.muzzle, 1));
+}
+void App::trebuchetStep(float dt) {
+  for (auto& i : doc.instances) {
+    auto it = rt.find(i.id); if (it == rt.end() || !it->second.asset || !trebKind(it->second.asset->station.kind)) continue;
+    InstanceRT& r = it->second; StationRT& s = r.st; const StationDef& d = r.asset->station;
+    if (!s.active || s.wrecked) continue;
+    if (s.treb == 1) {
+      const float t0 = s.trebT; s.trebT += dt;
+      if (t0 < d.trebRelease && s.trebT >= d.trebRelease) {
+        audio.play("impact_wood", trebuchetStone(i, r), 1.0f, 0.5f);   // the arm's thump against its stop
+        if (s.trebMine && s.loaded > 0) stationShoot(i.id, -1);
+      }
+      if (s.trebT >= d.trebFire) { s.treb = 2; s.trebT = 0; s.trebMine = false; }
+    } else if (s.treb == 2) {   // the crew reloads by itself while there are stones (crewed or not: they stand by it)
+      if (s.reserve > 0) { s.treb = 3; s.trebT = 0; s.reload = d.trebReload; }
+    } else if (s.treb == 3) {
+      s.trebT += dt; s.reload = std::max(0.0f, d.trebReload - s.trebT);
+      if (s.trebT >= d.trebReload) { stationFinishReload(s, d); s.treb = 0; s.trebT = 0; }
+    } else if (s.loaded <= 0 && s.reserve > 0) { s.treb = 3; s.trebT = 0; s.reload = d.trebReload; }   // an empty sling at the start
+    if (occupied == i.id && s.pos2 == ST_GUNNER && s.yawT != 0) {   // the frame turns in place, slowly (crew with levers)
+      const float turn = std::clamp(s.yawT, -d.traverseRate * dt, d.traverseRate * dt), ny = wrapDeg(s.carYaw + turn);
+      const vec3 c = s.pos + yawQuat(ny) * vec3(0, d.moveHalf.y + 0.1f, 0);
+      if (Physics::boxBlocked(c, d.moveHalf, yawQuat(ny), coreUD(i.id), true)) { s.yawT = 0; s.status = "Cannot turn: the frame would strike a structure"; }
+      else { s.yawT -= turn; s.carYaw = ny; s.status = ""; Physics::setTransform(r.staticBody, s.pos, yawQuat(s.carYaw)); }
+    }
+  }
+}
+
 // one round: the projectile along the moving parts' aim, ammunition, recoil, flash and sound. owner -1 = the local gunner.
 void App::stationShoot(uint64_t id, int owner) {
   Instance* inst = doc.find(id); auto& r = rt[id]; StationRT* s = &r.st;
@@ -584,6 +641,16 @@ void App::stationShoot(uint64_t id, int owner) {
     s->burst++;
     fx.muzzleFlash(muzzle + dir * 0.03f, dir, mg42 ? 1.5f : 1.9f, false, muzzle, vec3(-1), mg42 ? "7.92x57 mm" : "12.7x99 mm");   // WP4
     audio.play(mg42 ? "shot_mg42" : "shot_m2hb", muzzle, 1.0f);
+  } else if (trebKind(d.kind)) {   // TRE1: the stone from the sling, forward on the launch arc, its speed for the set range
+    start = trebuchetStone(*inst, r);
+    const float h = start.y - terrain.height(start.x, start.z), Rg = trebRange(d, s->elev);
+    const vec3 fw = yawQuat(s->carYaw) * vec3(0, 0, 1); dir = glm::normalize(fw * std::cos(radians(d.launchDeg)) + vec3(0, std::sin(radians(d.launchDeg)), 0));
+    fireProjectile(start, dir, trebSpeed(Rg, h, d.launchDeg), PROJ_HE, d.heDamage, coreUD(inst->id), false, d.ammo);
+    Projectile& p = projectiles.back(); p.atKill = true; p.blastR = d.heRadius; p.craterScale = d.heCrater; p.gravScale = 1.0f;
+    p.cannonBall = true;   // CW4: a siege stone breaches a rampart bay as round shot does (WALL_CANNON)
+    p.mesh = d.ballModel.get();
+    for (int k = 0; k < 6; ++k) { vec3 j(fx.rnd() - 0.5f, fx.rnd(), fx.rnd() - 0.5f); fx.smoke(start, j * 1.5f, 0.3f, 2.0f, vec4(0.6f, 0.55f, 0.48f, 0.35f), 1.5f, 0.3f); }   // dust off the pouch
+    audio.play(d.fireSound, start, 1.0f);
   } else {
     vec3 bore = d.muzzle - d.elevPivot;   // the bore axis at the trunnion plane (the Flak's bore sits above its trunnions)
     start = vec3(e * vec4(bore.x, bore.y, 0, 1));   // sweep from there along the bore: a wall at the muzzle stops the shell
@@ -681,7 +748,17 @@ void App::drawCombatUI() {
   const StationDef& d = r.asset->station;
   vec3 ie, ifr; float ifov;
   bool irons = d.kind == "mg42" && mg42MountSight(*this, ie, ifr, ifov);   // aimed over the gun's own sights, as handheld: no dot
-  if (s->pos2 == ST_GUNNER && (mgKind(d.kind) || cannonKind(d.kind)) && !irons) dl->AddCircleFilled(c, 2.5f, IM_COL32(240, 240, 230, 200));   // CAN1: the cannon's aim: the small white dot
+  if (s->pos2 == ST_GUNNER && (mgKind(d.kind) || cannonKind(d.kind) || trebKind(d.kind)) && !irons) dl->AddCircleFilled(c, 2.5f, IM_COL32(240, 240, 230, 200));   // CAN1: the cannon's aim: the small white dot
+  if (s->pos2 == ST_GUNNER && trebKind(d.kind)) {   // TRE1: range, phase, and the stone's landing spot marked on the ground
+    char e[96]; std::snprintf(e, sizeof e, "Range %.0f m   %s", trebRange(d, s->elev), s->treb == 1 ? "LOOSED" : s->treb == 3 ? "WINCHING" : s->loaded > 0 ? "READY" : "NO STONES");
+    dl->AddText(ImVec2(c.x + 14, c.y + 12), IM_COL32(240, 240, 230, 220), e);
+    if (Instance* ti = doc.find(occupied)) {
+      const vec3 st = trebuchetStone(*ti, r), fw = yawQuat(s->carYaw) * vec3(0, 0, 1); const float Rg = trebRange(d, s->elev);
+      vec3 hit = vec3(st.x, 0, st.z) + fw * Rg; hit.y = terrain.height(hit.x, hit.z) + 0.1f;
+      vec4 cc = projM * viewM * vec4(hit, 1);
+      if (cc.w > 0.1f) { ImVec2 hp((cc.x / cc.w * 0.5f + 0.5f) * io.DisplaySize.x, (0.5f - cc.y / cc.w * 0.5f) * io.DisplaySize.y); dl->AddCircle(hp, 9, IM_COL32(255, 210, 120, 230), 20, 2); dl->AddCircleFilled(hp, 2, IM_COL32(255, 210, 120, 230)); }
+    }
+  }
   if (s->pos2 == ST_GUNNER && cannonKind(d.kind)) { char e[64]; std::snprintf(e, sizeof e, "Elevation %+.0f\xC2\xB0%s", s->elev, s->fuse >= 0 ? "   FUSE LIT" : ""); dl->AddText(ImVec2(c.x + 14, c.y + 12), IM_COL32(240, 240, 230, 220), e); }
   if (s->pos2 == ST_GUNNER && !mgKind(d.kind) && !cannonKind(d.kind)) {
     // TZF-style optic: the eyepiece, its soft black surround and the reticle are drawn by the renderer (render.cpp
@@ -703,7 +780,7 @@ void App::drawCombatUI() {
   char b[256];
   const char* posName[] = {"", "GUNNER (Aim)", "PREPARING TO MOVE", "HANDLER (Move)", "DEPLOYING"};
   std::string cal = d.kind == "flak18" ? "8.8 cm" : "7.5 cm";
-  std::string ammoName = cannonKind(d.kind) ? std::string("Round shot") : d.kind == "mg42" ? "7.92 mm belt" : d.kind != "m2hb" ?(s->loadedAT && s->loaded ? cal + " AT loaded" : cal + " HE") + " | next " + (s->selAT ? "AT" : "HE") + " (X) | AT reserve " + std::to_string(s->reserveAT) : ".50 belt";
+  std::string ammoName = trebKind(d.kind) ? std::string("Stones") : cannonKind(d.kind) ? std::string("Round shot") : d.kind == "mg42" ? "7.92 mm belt" : d.kind != "m2hb" ?(s->loadedAT && s->loaded ? cal + " AT loaded" : cal + " HE") + " | next " + (s->selAT ? "AT" : "HE") + " (X) | AT reserve " + std::to_string(s->reserveAT) : ".50 belt";
   std::string state = s->reload > 0 ? "RELOADING " + std::to_string(s->reload).substr(0, 3) + " s" : s->loaded > 0 ? "READY" : "EMPTY - R to reload";
   std::snprintf(b, sizeof b, "%s | %s: %d loaded, %d reserve (max %d) | %s\nT switch position   E leave gun   %s", posName[s->pos2], ammoName.c_str(), s->loaded, s->reserve, s->reserveMax,
                 s->pos2 == ST_GUNNER ? state.c_str() : (s->deployed ? "deployed" : "not deployed - no firing"), s->status.c_str());
@@ -759,5 +836,39 @@ int cannonSelfCheck() {
     ok(t >= 1.5f && t <= 3.0f, n + " a push reaches walking pace in " + std::to_string(t).substr(0, 4) + " s");
   }
   std::printf("[can1] %s (%d failed)\n", fails ? "FAIL" : "PASS", fails);
+  return fails ? 1 : 0;
+}
+
+// TRE1 --check-tre1 (headless): the trebuchet asset parses as a fixed "trebuchet" station with its stone and timeline; the
+// baked model has its arm parts and the stone on the timeline (fire then reload, at 30 samples a second); the stone, at the
+// release, is high and moving fast up the swing; from there every range setting lands within 2 % of its range inside the
+// projectile's 9 s life; the stone model is baked
+int trebuchetSelfCheck() {
+  int fails = 0; auto ok = [&](bool c, const std::string& m) { std::printf("[tre1] %s %s\n", c ? "PASS" : "FAIL", m.c_str()); if (!c) ++fails; };
+  json j; try { j = json::parse(readTextFile(contentDir() / "assets" / "gun_trebuchet.json")); } catch (...) { ok(false, "gun_trebuchet.json parses"); std::printf("[tre1] FAIL\n"); return 1; }
+  const json& st = j["station"]; const json& tj = st["trebuchet"];
+  ok(st.value("kind", "") == "trebuchet" && st.value("fixed", false) && j.value("category", "") == "Field guns", "a fixed trebuchet station under Field guns");
+  const fs::path md = contentDir() / "assets" / "models";
+  ok(fs::exists(md / st.value("ball", std::string("?")) / "mesh.bin"), "the stone model baked (" + st.value("ball", std::string("?")) + ")");
+  json m; try { m = json::parse(readTextFile(md / j["model"]["dir"].get<std::string>() / "model.json")); } catch (...) { ok(false, "the trebuchet model baked"); std::printf("[tre1] FAIL\n"); return 1; }
+  const float dur = m.value("animDuration", 0.0f), fire = tj.value("fire", 0.0f), rAt = tj.value("reloadAt", 0.0f), rel = tj.value("reload", 0.0f), release = tj.value("release", 0.0f);
+  ok(std::fabs(rAt + rel - dur) < 0.05f && fire < rAt && release > 0.5f && release < 3.0f, "the timeline: fire 0-" + std::to_string(fire).substr(0, 4) + " s, reload " + std::to_string(rAt).substr(0, 4) + "-" + std::to_string(dur).substr(0, 5) + " s, the release " + std::to_string(release).substr(0, 4) + " s in");
+  int stone = -1, arm = 0; size_t samples = 0;
+  for (int k = 0; k < (int)m["parts"].size(); ++k) { const std::string n = m["parts"][k].value("name", ""); if (n == "Treb_Stone") stone = k; arm += n == "Treb_Arm"; if (n == "Treb_Stone") samples = m["parts"][k].value("anim", json::array()).size(); }
+  ok(stone >= 0 && arm > 0 && samples >= (size_t)(dur * 29), "the arm and the stone on the timeline (" + std::to_string(samples) + " samples over " + std::to_string(dur).substr(0, 5) + " s)");
+  if (stone < 0 || samples < 2) { std::printf("[tre1] FAIL (%d failed)\n", fails + 1); return 1; }
+  const json& sp = m["parts"][stone]; const vec3 c = (jvec3(sp["bmin"]) + jvec3(sp["bmax"])) * 0.5f;
+  auto at = [&](float t) { const float f = std::clamp(t / dur, 0.0f, 1.0f) * (samples - 1); const size_t i = std::min(samples - 1, (size_t)std::lround(f)); mat4 M; for (int q = 0; q < 16; ++q) glm::value_ptr(M)[q] = sp["anim"][i][q].get<float>(); return vec3(M * vec4(c, 1)); };
+  const vec3 p0 = at(release), pv = at(release - 0.1f); const float h = p0.y, v = glm::length(p0 - pv) / 0.1f;
+  ok(h > 5.0f && v > 8.0f && at(0).y < 3.5f, "the stone at the release: " + std::to_string(h).substr(0, 4) + " m up, moving " + std::to_string(v).substr(0, 4) + " m/s (" + std::to_string(at(0).y).substr(0, 4) + " m up in the pouch)");
+  const float deg = tj.value("launchDeg", 45.0f); float worst = 0, err = 0;
+  for (float R = tj.value("rangeMin", 60.0f); R <= tj.value("rangeMax", 260.0f) + 1e-3f; R += 20) {   // flown as stepProjectiles flies it (2 x 60 Hz substeps)
+    const float s0 = trebSpeed(R, h, deg); vec3 p(0, h, 0), w(0, s0 * std::sin(radians(deg)), s0 * std::cos(radians(deg))); float t = 0;
+    while (p.y > 0 && t < 30) { const float dt = 1.0f / 120; p += w * dt; w.y -= 9.81f * dt; t += dt; }
+    worst = std::max(worst, t); err = std::max(err, std::fabs(p.z - R) / R);
+  }
+  ok(err < 0.02f && worst < 9.0f, "ranges " + std::to_string((int)tj.value("rangeMin", 60.0f)) + "-" + std::to_string((int)tj.value("rangeMax", 260.0f)) + " m land within " + std::to_string(err * 100).substr(0, 4) + " % (longest flight " + std::to_string(worst).substr(0, 4) + " s of the 9 s life)");
+  const json& he = st["shellHE"]; ok(he.value("damage", 0.0f) >= 200 && he.value("radius", 0.0f) >= 4, "the stone: " + std::to_string((int)he.value("damage", 0.0f)) + " damage within " + std::to_string(he.value("radius", 0.0f)).substr(0, 3) + " m");
+  std::printf("[tre1] %s (%d failed)\n", fails ? "FAIL" : "PASS", fails);
   return fails ? 1 : 0;
 }

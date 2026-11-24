@@ -304,4 +304,5 @@ struct StationRT {
   int shots = 0, burst = 0;               // burst: rounds since the trigger was pressed (MG 42 tail on release)
   float cool = 0;
   float fuse = -1, speed = 0, rollL = 0, rollR = 0;   // CAN1 cannon: fuse burning (s, -1 none), carriage speed along +z (m/s), wheel travel per side (m)
+  int treb = 0; float trebT = 0; bool trebMine = false;   // TRE1 trebuchet: 0 loaded, 1 firing, 2 fired, 3 reloading; s into that clip; this machine looses the stone
 };

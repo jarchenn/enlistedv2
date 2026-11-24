@@ -437,6 +437,11 @@ void App::buildDrawLists(std::vector<DrawItem>& op, std::vector<DrawItem>& gl) {
             const vec3 c = (gm->parts[k].bmin + gm->parts[k].bmax) * 0.5f; const float rr = std::max(0.05f, (gm->parts[k].bmax.y - gm->parts[k].bmin.y) * 0.5f);
             M = b * glm::translate(mat4(1), c) * glm::rotate(mat4(1), (c.x < 0 ? r.st.rollL : r.st.rollR) / rr, vec3(1, 0, 0)) * glm::translate(mat4(1), -c);
           }
+          if (role == 8 && !trebuchetStoneShown(r)) continue;   // TRE1: the winch rope (not animated by the bake): drawn only with the arm down and loaded
+          if (role == 6 || role == 7) {   // TRE1: a trebuchet part on its baked timeline; the stone only while it is in the pouch
+            if (role == 7 && !trebuchetStoneShown(r)) continue;
+            M = b * gm->animAt((int)k, gm->animDuration > 0 ? trebuchetClipTime(r) / gm->animDuration : 0.0f);
+          }
           if (role == 5) {   // CAN1: the fuse cord, shrinking into the vent as it burns; gone once fired until the next round is loaded
             if (r.st.loaded <= 0 || r.st.wrecked) continue;
             const float f = r.st.fuse < 0 ? 1.0f : std::max(0.02f, 1.0f - r.st.fuse / sd.fuseTime);
@@ -1224,7 +1229,8 @@ int App::run(int argc, char** argv) {
     else if (a == "--check-mech") { extern int mechSelfCheck(); return mechSelfCheck(); }   // MT1: the Mech Tank AI's drive / fire rule (tank_mech.cpp)
     else if (a == "--check-ar1") { extern int ar1SelfCheck(); return ar1SelfCheck(); }   // AR1: Archer 1's ranged attack data and the arrow's aim (zombie.cpp)
     else if (a == "--check-fxev") { extern int fxDataSelfCheck(); return fxDataSelfCheck(); }   // Battle Foundry 9.2 EVENTS / BRIGHTNESS / SCALE (fxdata.cpp, fx.cpp)
-    else if (a == "--check-can1") { extern int cannonSelfCheck(); return cannonSelfCheck(); }   // CAN1: the cannon stations' assets, ball flight, roll-back and push (station.cpp)
+    else if (a == "--check-can1") { extern int cannonSelfCheck(); return cannonSelfCheck(); }
+    else if (a == "--check-tre1") { extern int trebuchetSelfCheck(); return trebuchetSelfCheck(); }   // TRE1: the trebuchet station (station.cpp)   // CAN1: the cannon stations' assets, ball flight, roll-back and push (station.cpp)
     else if (a == "--check-dynres") { extern int dynResSelfCheck(); return dynResSelfCheck(); }   // CP 5.1: the control law on synthetic timings
     else if (a == "--texture-placeholders" && k + 1 < argc) { std::vector<std::string> v; std::string l = argv[++k]; for (size_t b = 0, e; b <= l.size(); b = e + 1) { e = l.find(',', b); if (e == std::string::npos) e = l.size(); if (e > b) v.push_back(l.substr(b, e - b)); } return tex::writePlaceholders(k + 1 < argc ? fs::path(argv[k + 1]) : contentDir() / "textures", v); }
     else if (a == "--rq-off" && k + 1 < argc) rqOff.push_back(argv[++k]);   // switch one render feature off (A/B): taa ssr ssao bloom shafts cascade cloudshadow, or a Renderer::perf switch

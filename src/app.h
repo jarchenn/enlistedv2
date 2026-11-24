@@ -458,6 +458,10 @@ public:
   std::string resupplyPersonal(uint64_t crateId);
   std::string resupplyWeapon(uint64_t crateId, const WeaponDef& d, WeaponState& s);
   void cannonStep(const Instance& inst, InstanceRT& r, float dt, const ExploreInput& in);   // CAN1 (station.cpp): fuse, rolling carriage, wheels
+  void trebuchetStep(float dt);                    // TRE1 (station.cpp): every trebuchet's fire / reload cycle, crewed or not
+  float trebuchetClipTime(const InstanceRT& r) const;   // TRE1: s into the baked timeline for the current phase
+  bool trebuchetStoneShown(const InstanceRT& r) const;  // TRE1: the stone in the pouch
+  vec3 trebuchetStone(const Instance& i, const InstanceRT& r) const;   // TRE1: the stone's world centre as drawn now
   void stationShoot(uint64_t id, int owner);       // one round from a station (local gunner, or a LAN client's on the host)
   void stationFinishReload(StationRT& s, const StationDef& d);
   void resetCrate(const Instance& i);

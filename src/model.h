@@ -42,6 +42,7 @@ struct ImportSpec {
   std::map<std::string, std::string> nodeParts;   // ancestor/joint name -> role
   std::vector<std::string> hide;    // ancestor names dropped entirely
   int maxTex = 1024; bool jpgMaps = false;   // jpgMaps (PR1): normal and MR maps written as JPEG
+  float animFps = 0;                // TRE1: > 0: the first clip sampled at this rate (a long timeline), else 96 samples
   json matOverride = json::object();   // per source material name: {"base":[r,g,b,a], "metal":m, "rough":r, "dropTextures":bool, "roughScale":k}
   vec3 tint{1};                        // multiplies every base colour (palette correction)
   // Edits of the supplied mesh, applied at bake in weapon space (after rot/scale/placement). Each edit selects the

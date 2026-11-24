@@ -1148,6 +1148,9 @@ void AssetLibrary::build(AssetDef& ad) const {
     st.fireSound = sj.value("fireSound", std::string("pak_fire")); st.fixed = sj.value("fixed", false);
     st.vent = jvec3(jkey(sj, "vent"), st.muzzle); st.fuseTip = jvec3(jkey(sj, "fuseTip"), st.vent); st.fuseTime = sj.value("fuseTime", 1.0f); st.pushSpeed = sj.value("pushSpeed", 0.9f);   // CAN1
     st.heGravity = jkey(sj, "shellHE").value("gravity", 1.0f);
+    if (sj.contains("trebuchet")) { const json& tj = sj["trebuchet"];   // TRE1
+      st.trebFire = tj.value("fire", st.trebFire); st.trebReloadAt = tj.value("reloadAt", st.trebReloadAt); st.trebReload = tj.value("reload", st.trebReload); st.trebRelease = tj.value("release", st.trebRelease);
+      st.trebStoneBack = tj.value("stoneBack", st.trebStoneBack); st.rangeMin = tj.value("rangeMin", st.rangeMin); st.rangeMax = tj.value("rangeMax", st.rangeMax); st.launchDeg = tj.value("launchDeg", st.launchDeg); }
     if (sj.contains("ball")) { auto gm = std::make_shared<GpuModel>(); std::string e; if (gm->load(contentDir() / "assets" / "models" / sj["ball"].get<std::string>(), e)) st.ballModel = gm; else logf("asset %s: ball model: %s (a trail instead)", a->id.c_str(), e.c_str()); }
     auto load = [&](const char* key, std::vector<Part>& parts, GpuMesh& mesh, vec3 pivot) {
       MeshData m;
@@ -1401,7 +1404,7 @@ void AssetLibrary::build(AssetDef& ad) const {
       if (a->modelFoliage) folCache[dir.string() + (turn ? "|t" : "")] = {a->model, a->modelLod};
       partRange();
       if (mj.contains("stationRoles")) {   // part-name prefix -> station role: base / traverse / elevation / recoil / wheel / fuse (CAN1)
-        static const std::map<std::string, int> rn = {{"base", 0}, {"traverse", 1}, {"elevation", 2}, {"recoil", 3}, {"wheel", 4}, {"fuse", 5}};
+        static const std::map<std::string, int> rn = {{"base", 0}, {"traverse", 1}, {"elevation", 2}, {"recoil", 3}, {"wheel", 4}, {"fuse", 5}, {"anim", 6}, {"stone", 7}, {"rope", 8}};   // TRE1: anim / stone ride the baked timeline
         for (auto& p : gm->parts) {
           int role = 0;
           for (auto& [pre, rv] : jkey(mj, "stationRoles").items()) if (p.name.rfind(pre, 0) == 0) { auto f = rn.find(rv.get<std::string>()); if (f != rn.end()) role = f->second; }
