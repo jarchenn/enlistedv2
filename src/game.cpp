@@ -309,6 +309,7 @@ void Game::setupSlotSoldier(const RosterSlot& rs, AiType ait, int variant, int& 
             : ait == AiType::ImperialGilded ? localTypeOr("imperial_gilded", "chinese_imperial_gilded", "knight_spear")
             : ait == AiType::ImperialMoon ? localTypeOr("imperial_moon", "chinese_imperial_moon", "knight_spear")
             : ait == AiType::ImperialArcher ? localTypeOr("imperial_archer", "chinese_imperial_archer", "archer1")   // IA1: Archer 1 without the model
+            : ait == AiType::RomanLegionary ? localTypeOr("roman_legionary", "roman_legionary", "knight")   // RL1: Knight 1 without the local model
             : ait == AiType::RomanArcher ? std::max(0, enemyTypeIndex(fs::exists(contentDir() / "characters" / "roman_archer.glb") ? "roman_archer" : fs::exists(contentDir() / "characters" / "archer_2.glb") ? "archer2" : "archer1"))   // RA1: Archer 2 (or Archer 1) were its model missing
             : ait == AiType::Archers2 ? std::max(0, enemyTypeIndex(fs::exists(contentDir() / "characters" / "archer_2.glb") ? "archer2" : "archer1"))   // AR2: its model is local-only (the tunic is CC-BY-NC-ND): Archer 1 without it
             : ait == AiType::Abominations ? std::max(0, enemyTypeIndex("abomination")) : ait == AiType::Golems ? std::max(0, enemyTypeIndex("golem"))

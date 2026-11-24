@@ -934,12 +934,14 @@ void aiZombiePose(Game& G, Soldier& s, float dt) {
     vec3 l = glm::inverse(glm::mat3(s.world)) * s.deathDir;
     hd = findClip(m, (l.x < 0 ? e.deathRight : e.deathLeft).c_str());
   }
-  if (!s.alive) A.play(K_DEATH, hd >= 0 ? hd : s.deathPick >= 0 ? pickAt(ce.deathClips, s.deathPick) : pickAt(ce.deathClips, s.slot + s.lifeId), -1, 0, 1, false);   // KD1: the host's pick (hit direction, headshot)
+  if (!s.alive) { const int dk = hd >= 0 ? hd : s.deathPick >= 0 ? pickAt(ce.deathClips, s.deathPick) : pickAt(ce.deathClips, s.slot + s.lifeId);   // KD1: the host's pick (hit direction, headshot)
+    if (dk >= 0) A.play(K_DEATH, dk, -1, 0, 1, false);
+    else if (A.key != K_DEATH) { A.key = K_DEATH; A.rate = 0; A.loop = false; } }   // RL1: a model without its death clips holds the pose it died in (was: the rest pose)
   else if (climbing) { int cc = ce.climbClip.empty() ? -1 : findClip(m, ce.climbClip); if (cc >= 0) A.play(K_CLIMB, cc, -1, 0, m.clips[cc].dur / std::max(0.3f, tm->trav.dur), false); else A.play(K_CLIMB, walk, -1, 0, 1.4f, true); }   // holds its end pose (no ragdoll in this game)
   else if (A.strike != s.meleeCount) { A.strike = s.meleeCount; A.play(K_ATTACK, attackClip(m, ce, s.meleeClip), -1, 0, e.attackRate, false, true); }
   else if (A.key == K_ATTACK && playing(1e9f) && !(lookK >= 0 && A.a == lookK && moving)) {}   // the swing plays out (EK: the look round gives way to the mount's stride)
   else if (A.key == K_ATTACK && lookK >= 0 && A.look != A.strike && !moving) { A.look = A.strike; A.play(K_ATTACK, lookK, -1, 0, 1, false, true); }   // EK: the swing done and the mount standing: the look round (clients alike, from the strike count)
-  else if (hurt) A.play(K_DAMAGE, pickAt(ce.damageClips, s.slot + (int)s.hp), -1, 0, 1, false, true);   // EN2: a hit reaction of the list
+  else if (hurt && pickAt(ce.damageClips, s.slot + (int)s.hp) >= 0) A.play(K_DAMAGE, pickAt(ce.damageClips, s.slot + (int)s.hp), -1, 0, 1, false, true);   // EN2: a hit reaction of the list (RL1: none in the model: no flinch, not the rest pose)
   else if (A.key == K_DAMAGE && playing(c.flinch)) {}
   else if (s.speed > std::max(0.3f, 0.05f * s.eScale) * (A.key == K_LOCO ? 0.7f : 1.3f) && walk >= 0) {   // AN1 step 7: hysteresis (no idle / walk flicker at the threshold); a giant shuffling slower than that stands (its stride would freeze mid-step)
     float w = run >= 0 ? std::clamp((s.speed - vw) / (vr - vw), 0.0f, 1.0f) : 0.0f;
@@ -1214,6 +1216,21 @@ int ar1SelfCheck() {
       std::vector<std::string> need = t.walkClips; need.push_back(t.runClip); for (auto* v : {&t.idleClips, &t.attackClips, &t.damageClips, &t.deathClips}) need.insert(need.end(), v->begin(), v->end());
       for (auto& c : need) ok = ok && names.count(c); ok = ok && arrow && str; }
     chk(ok && (int)AiType::ImperialArcher == 58 && kAiTypeCount > 58 && !Game::soldierBrain(AiType::ImperialArcher) && std::string(aiTypeName(AiType::ImperialArcher)) == "Imperial Archer", "Imperial Archer (IA1): AI type 58, Archer 1's health, shot and deaths at the Imperial Soldiers' size, not in Assorted, every clip it names in its GLB (" + std::to_string(names.size()) + " clips), Arrow and BowString joints"); }
+  {   // RL1: AI type 59 Roman Legionary: melee, not in Assorted; with the local type, Knight 1's class, health and sounds, a short gladius reach,
+    // strikes on the right hand at each clip's blow, every clip it names that the model has (the run, stagger and deaths may come later)
+    bool ok = (int)AiType::RomanLegionary == 59 && kAiTypeCount > 59 && !Game::soldierBrain(AiType::RomanLegionary) && std::string(aiTypeName(AiType::RomanLegionary)) == "Roman Legionary"; std::string have = "local type absent: Knight 1";
+    for (auto& [m, w] : zcfg().assorted) ok = ok && m != "roman_legionary";
+    const int k = enemyTypeIndex("roman_legionary");   // (Knight 1 itself may be overridden by a local file: the numbers are checked as such)
+    if (k >= 0) { const EnemyType& t = enemyType(k); std::set<std::string> names;
+      ok = ok && t.cls == "knight" && t.hp >= 300.0f && t.sndAttack == "knight_attack" && t.attackAtBlow && t.reach > 1.5f && t.reach < 2.1f && t.height > 2.0f && t.height < 2.2f && t.attackSpecs.size() == t.attackClips.size();
+      for (auto& x : t.attackSpecs) ok = ok && x.bone == "mixamorig:RightHand" && x.hasAt && x.swing > 0.3f && x.swing < 0.7f && glm::length(x.at) > 40.0f && glm::length(x.at) < 70.0f;
+      std::ifstream f(contentDir() / "characters" / (t.model + ".glb"), std::ios::binary); std::string g(20, 0); f.read(g.data(), 20); uint32_t nn = 0;
+      if (f.gcount() == 20) { std::memcpy(&nn, g.data() + 12, 4); std::string js(nn, 0); f.read(js.data(), nn); json J; try { J = json::parse(js); } catch (...) {} for (auto& x : J.value("animations", json::array())) names.insert(x.value("name", std::string())); }
+      std::vector<std::string> need = t.walkClips; need.push_back(t.runClip); for (auto* v : {&t.idleClips, &t.attackClips}) need.insert(need.end(), v->begin(), v->end());
+      for (auto& c : need) ok = ok && names.count(c);
+      int later = 0; for (auto* v : {&t.damageClips, &t.deathClips}) for (auto& c : *v) later += !names.count(c);
+      have = "local type: " + std::to_string(names.size()) + " clips, " + std::to_string(later) + " of its hit / death clips still to come (held pose / no flinch until then)"; }
+    chk(ok, "Roman Legionary (RL1): AI type 59, melee, not in Assorted; " + have); }
   {   // GR1: the fire curve's overlapping shots add, each x its weight; the rod is the furthest back among them; past the end a shot is off the curve
     WeaponDef d; d.fireCurveFps = 10; d.fireCurve = {{}, {}, {}}; d.fireCurve[1][6] = 2; d.fireCurve[1][9] = 0.08f;   // muzzle up 2 deg and the rod back at 0.1 s
     WeaponState w; w.curveFolded[0] = w.curveFolded[1] = false; w.curveAge[0] = 0.1f; w.curveGain[0] = 1; w.curveAge[1] = 0.05f; w.curveGain[1] = 0.5f;
