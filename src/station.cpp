@@ -625,7 +625,14 @@ std::vector<vec3> App::shotArc(vec3 from, vec3 v, float grav, uint64_t ignore, v
   std::vector<vec3> pts{from}; vec3 p = from; const float h = 1.0f / 120;
   for (float t = 0; t < 9.0f; t += h) {
     const vec3 seg = v * h; Physics::Hit hit;
-    if (Physics::castRayEx(p, seg, glm::length(seg), hit, ignore)) { pts.push_back(hit.pos); if (hitPos) *hitPos = hit.pos; if (tOut) *tOut = t + h * hit.t / std::max(1e-6f, glm::length(seg)); if (hitUd) *hitUd = hit.ud; if (hitN) { vec3 n = glm::length(hit.normal) > 0.5f ? glm::normalize(hit.normal) : vec3(0, 1, 0); if (glm::dot(n, seg) > 0) n = -n; *hitN = n; } return pts; }   // TRE6: toward the shot (a mesh triangle may face into the wall)
+    if (Physics::castRayEx(p, seg, glm::length(seg), hit, ignore)) { pts.push_back(hit.pos); if (hitPos) *hitPos = hit.pos; if (tOut) *tOut = t + h * hit.t / std::max(1e-6f, glm::length(seg)); if (hitUd) *hitUd = hit.ud; if (hitN) { vec3 n = glm::length(hit.normal) > 0.5f ? glm::normalize(hit.normal) : vec3(0, 1, 0);
+      // the collider's own normal came back sideways on the city wall's bays (the circle stood edge-on in the wall): take the
+      // surface's plane from two more rays beside this one instead, and keep the collider's normal only when they miss
+      const vec3 u = glm::normalize(seg), s1 = glm::normalize(glm::cross(u, std::fabs(u.y) < 0.9f ? vec3(0, 1, 0) : vec3(1, 0, 0))), s2 = glm::cross(u, s1);
+      Physics::Hit h1, h2; const float back = 0.5f, reach = back + glm::length(seg) + 1.0f;
+      if (Physics::castRayEx(hit.pos - u * back + s1 * 0.08f, u, reach, h1, ignore) && Physics::castRayEx(hit.pos - u * back + s2 * 0.08f, u, reach, h2, ignore)) {
+        const vec3 c = glm::cross(h1.pos - hit.pos, h2.pos - hit.pos); if (glm::length(c) > 1e-6f && glm::length(h1.pos - hit.pos) < 0.5f && glm::length(h2.pos - hit.pos) < 0.5f) n = glm::normalize(c); }
+      if (glm::dot(n, seg) > 0) n = -n; *hitN = n; } return pts; }   // TRE6: toward the shot (a mesh triangle may face into the wall)
     p += seg; v.y -= 9.81f * grav * h;
     if (((int)std::lround(t / h)) % 6 == 0) pts.push_back(p);   // a point every 50 ms is smooth on screen
     if (p.y < -100) break;
