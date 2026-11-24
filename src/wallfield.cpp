@@ -600,6 +600,7 @@ int App::stampWall(InstanceRT& r, const WallEvent& e, bool effects, std::vector<
       for (size_t k = 0; k < a->panels.size(); ++k) {
         const BaySupport& B = S.bay[k];
         if (!B.on) continue;
+        if (a->panels[k].family == "rampart") continue;   // CW4c: a 4 m rampart arches over its breach (no 60 deg fall above it)
         Frame f = panelFrame(a->panels[k], cell);
         std::vector<uint8_t> sup((size_t)f.nu, 1);
         bool anyLost = false;
