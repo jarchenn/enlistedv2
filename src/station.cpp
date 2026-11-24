@@ -368,7 +368,7 @@ void App::stepProjectiles(float dt) {
           else if (!th.consumed && p.kind != PROJ_BULLET) {   // detonation on the armour: the shared blast, but no crater under the tank
             blastAT = false; blastSplashGun = p.splashGun; blastPersonnel = p.kind == PROJ_ROCKET ? 1.6f : p.at ? 1.0f : 2.0f;
             auto ex = p.kind == PROJ_ROCKET ? explode(hit.pos, p.v, p.blastDmg, p.blastR, 0.0f, p.ignore, WALL_ROCKET)
-                    : p.at ? explode(hit.pos, p.v, 320.0f, 0.9f, 0.0f, p.ignore, WALL_AP) : explode(hit.pos, p.v, p.dmg, 2.2f, 0.0f, p.ignore, WALL_HE);
+                    : p.at ? explode(hit.pos, p.v, 320.0f, 0.9f, 0.0f, p.ignore, WALL_AP) : explode(hit.pos, p.v, p.dmg, 2.2f, 0.0f, p.ignore, p.cannonBall ? WALL_CANNON : WALL_HE);
             blastSplashGun = 40; blastPersonnel = 1;
             if (p.lightAT > 0) { fx.flash(hit.pos + hit.normal * 0.1f, 0.5f, 0.06f, vec4(9, 6, 3, 1)); fx.impact(hit.pos, hit.normal, "metal"); }   // VH8: a 25 mm round on armour
             else fx.explosion(hit.pos, hit.normal, "metal", false);
@@ -407,7 +407,7 @@ void App::stepProjectiles(float dt) {
           blastPersonnel = p.kind == PROJ_ROCKET ? 1.6f : p.at ? 1.0f : 2.0f;   // HE against soldiers: launchers +60 %, tank / AT gun shells +100 %
           const float gk = 0.5f;   // tank / AT gun shells dig half the crater (walls unchanged)
           auto ex = p.kind == PROJ_ROCKET ? explode(hit.pos, p.v, p.blastDmg, p.blastR, p.craterScale, p.ignore, WALL_ROCKET)
-                  : p.at ? explode(hit.pos, p.v, 320.0f, 0.9f, 1.0f * gk, p.ignore, WALL_AP) : explode(hit.pos, p.v, p.dmg, p.blastR > 0 ? p.blastR : 2.2f, (p.craterScale > 0 ? p.craterScale : 1.0f) * gk, p.ignore, WALL_HE);
+                  : p.at ? explode(hit.pos, p.v, 320.0f, 0.9f, 1.0f * gk, p.ignore, WALL_AP) : explode(hit.pos, p.v, p.dmg, p.blastR > 0 ? p.blastR : 2.2f, (p.craterScale > 0 ? p.craterScale : 1.0f) * gk, p.ignore, p.cannonBall ? WALL_CANNON : WALL_HE);
           blastAT = false; blastSplashGun = 40; blastPersonnel = 1; blastShell = false;
           if (p.lightAT > 0) {   // VH8: a 25 mm round: a modest burst, not a shell's explosion
             fx.flash(hit.pos + hit.normal * 0.1f, 0.5f, 0.06f, vec4(9, 6, 3, 1)); fx.impact(hit.pos, hit.normal, surface == "ground" ? "ground" : surface);
@@ -590,6 +590,7 @@ void App::stationShoot(uint64_t id, int owner) {
     fireProjectile(start, dir, s->loadedAT ? d.atVelocity : d.heVelocity, PROJ_HE, d.heDamage, coreUD(inst->id), false, s->loadedAT ? d.ammoAT : d.ammo);
     projectiles.back().at = s->loadedAT; projectiles.back().atKill = true; projectiles.back().blastR = d.heRadius; projectiles.back().craterScale = d.heCrater;
     projectiles.back().gravScale = d.heGravity;
+    projectiles.back().cannonBall = cannonKind(d.kind);   // CW4: its wall hits are WALL_CANNON (the only hit that breaches a rampart)
     if (cannonKind(d.kind) && R.perf.cannons) {   // CAN1: the ball drawn, the carriage rolled back recoil m, a black-powder cloud
       projectiles.back().mesh = d.ballModel.get(); s->speed = cannonRecoilSpeed(d.recoil, d.pushSpeed);
       for (int k = 0; k < 12; ++k) { vec3 j(fx.rnd() - 0.5f, fx.rnd() - 0.3f, fx.rnd() - 0.5f); fx.smoke(muzzle + dir * (0.2f + 0.3f * k), dir * (5.0f - 0.35f * k) + j * 1.2f, 0.35f + 0.08f * k, 5.0f + 3.0f * fx.rnd(), vec4(0.84f, 0.83f, 0.8f, 0.8f), 2.4f, 0.25f); }

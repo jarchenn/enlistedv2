@@ -11,7 +11,7 @@ static const float kHE = 120.0f, kHER = 2.2f;   // game damage units / metres (s
 
 namespace {
 struct Ctx {
-  uint64_t A = 0, B = 0, C = 0, M = 0, C2 = 0;
+  uint64_t A = 0, B = 0, C = 0, M = 0, C2 = 0, R = 0;   // R: CW4 a city-wall section (rampart bays)
   std::string pA;           // farmhouse panel under test
   int variant = 0;
   vec3 Q{0}, Q2{0};
@@ -166,6 +166,7 @@ void SelfTest::damageUpdate(App& app, float dt) {
     app.interior.unfurnish(app, X.A); app.interior.unfurnish(app, X.B);
     X.C = app.placeInstance(app.lib.find("bunker_mg_casemate"), vec3(-40, 0, 45), 200.0f);
     X.M = app.placeInstance(app.lib.find("large_municipal_building"), vec3(110, 0, -70), 123.0f);
+    if (app.lib.find("cw_wall")) X.R = app.placeInstance(app.lib.find("cw_wall"), vec3(-90, 0, -80), 0.0f);   // CW4: a rampart (city wall) section
     check(X.A && X.B && X.C && X.M, "fixture: two farmhouse copies (one at 37 deg), rotated MG casemate, municipal building placed");
     app.syncRuntime();
     const AssetDef* fa = app.lib.find(FH);
@@ -197,6 +198,31 @@ void SelfTest::damageUpdate(App& app, float dt) {
     bool hitThis = std::find(e3.hits.begin(), e3.hits.end(), X.pA) != e3.hits.end();
     check(!hitThis || app.rt[X.A].state[k] == PANEL_BREACHED, "a further shot through the opening resolves against the rebuilt collision");
     summary["wall_rebuild_ms_farmhouse"] = app.rt[X.A].lastRebuildMs;
+    if (X.R) {   // CW4 (docs/destruction.md#rampart): a city-wall section yields only to cannon round shot, two shots on one stretch
+      const AssetDef* ra = app.rt[X.R].asset;
+      int k0 = pidx(ra, "rampart/0-1"), k1 = pidx(ra, "rampart/1-1");
+      check(k0 >= 0 && k1 >= 0 && ra->panels[k0].family == "rampart", "city wall: its body is rampart bays");
+      if (k0 >= 0 && k1 >= 0) {
+        const Panel& p0 = ra->panels[k0];
+        float cx = 0.5f * (p0.bmin.x + p0.bmax.x), front = p0.bmax.z;
+        auto through = [&](float y) {   // a ray from outside, level, at height y: does it cross the 4.6 m wall?
+          Physics::Hit h; vec3 o = W(app, X.R, vec3(cx, y, front + 0.3f)), d = Wd(app, X.R, vec3(0, 0, -1));
+          return !Physics::castRayEx(o, d, 5.5f, h) || h.ud != wallUD(X.R);
+        };
+        vec3 at(cx, 1.15f, front + 0.01f), in(0, 0, -1);
+        for (int kind : {WALL_HE, WALL_AP, WALL_ROCKET, WALL_GRENADE})
+          for (int n = 0; n < 3; ++n) hitAt(app, X.R, at, in, kind, kind == WALL_AP ? 320.0f : kind == WALL_ROCKET ? 290.0f : kind == WALL_GRENADE ? 85.0f : kHE);
+        check(!app.rt[X.R].damaged, "city wall: three each of HE, AP, rocket and grenade leave a rampart unmarked");
+        hitAt(app, X.R, at, in, WALL_CANNON, 160.0f);
+        check(app.rt[X.R].state[k0] == PANEL_DAMAGED && !through(1.15f), "city wall: one cannon shot leaves a deep crater, not a hole");
+        hitAt(app, X.R, at + vec3(0.1f, 0.15f, 0), in, WALL_CANNON, 160.0f);
+        bool low = through(0.25f), mid = through(1.1f), high = through(1.85f), side = through(1.1f);
+        float wide = removedWidth(app, X.R, k0);
+        char b[200]; std::snprintf(b, sizeof b, "city wall: a second cannon shot on the stretch opens a man-sized hole through 4.6 m (rays at 0.25 %d, 1.1 %d, 1.85 m %d; %.2f m wide)", (int)low, (int)mid, (int)high, wide);
+        check(app.rt[X.R].state[k0] == PANEL_BREACHED && low && mid && high && wide >= 0.8f, b);
+        (void)side;
+      }
+    }
     summary["panel_rebuild_ms_farmhouse"] = app.rt[X.A].lastPanelMs;
     (void)e1; (void)e2;
     {   // the breach is local: wall still stands a bay-width away; hitting the strip below it joins a doorway

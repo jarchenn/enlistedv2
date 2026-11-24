@@ -180,6 +180,7 @@ struct Projectile {
   std::string ammo;
   float travelled = 0;          // m flown so far (W1 damage falloff: the true range)
   bool cannon30 = false;        // VH5 helicopter chin gun: an HE round that counts as small arms on tanks, as a launcher on cars
+  bool cannonBall = false;      // CW4: round shot from a CAN1 cannon (gun_cannon18 / gun_cannon_mortar): walls get WALL_CANNON (breaches ramparts)
   float lightAT = 0;            // VH7 autocannon round: > 0 its damage per counted hit on armour (never a tank's front)
   float armourMult = 1;         // VH8: launcher damage factor on armoured vehicles (the 40 mm grenade launcher 0.2)
   uint64_t towOf = 0;           // VH7: a TOW guided by this vehicle's gunner (its crosshair); 0 none

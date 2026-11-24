@@ -64,6 +64,10 @@ float coordOf(const Frame& f, float s) { return f.front - f.ns * s; }
 // stamp parameters (game tuning, docs/destruction.md): in-plane radius and removal depth into masonry of
 // resistance 1 (HP 200), scaled by sqrt(damage / reference)
 struct Profile { float r, depth, ref; };
+// CW4 rampart (docs/destruction.md#rampart): the outline's radius (x 0.71 across, x 1.41 up: ~1.0 x 2.0 m) and the share
+// of the bay's thickness one cannon shot removes (2 shots > 1: through; one leaves a deep crater, under the 0.72 that
+// would punch through on its own)
+constexpr float kRampartRad = 0.71f, kRampartBite = 0.56f;
 Profile profileFor(int kind) {
   switch (kind) {
     case WALL_AP:      return {0.80f, 1.60f, 320.0f};   // AT / tank-gun shot: large, deep, perforates masonry and 1 m concrete in one hit
@@ -341,6 +345,10 @@ int App::stampWall(InstanceRT& r, const WallEvent& e, bool effects, std::vector<
     // resistance per unit depth (thickness already counts): masonry 1, reinforced concrete 1.2 (x HP / 450), timber 0.45
     float resist = std::max(0.2f, pn.family == "concrete" ? 1.2f * pn.hp / 450.0f : pn.hp / 200.0f);
     bool timber = pn.family == "timber", masonry = pn.family == "masonry";
+    // CW4: a rampart (a city wall's thick body, docs/destruction.md#rampart) yields only to cannon round shot; each shot
+    // takes 56 % of the thickness in an upright, man-sized outline, so the second on the same stretch goes through
+    const bool rampart = pn.family == "rampart";
+    if (rampart && e.kind != WALL_CANNON) continue;
     vec3 n(0); n[f.an] = f.ns;
     const vec3 ep = panelToLocal(pn, e.p), bmn = panelFrameMin(pn), bmx = panelFrameMax(pn);   // GM3: the bay's own frame (roof slabs)
     float dN = std::max({bmn[f.an] - ep[f.an], ep[f.an] - bmx[f.an], 0.0f});   // stand-off from the bay's slab
@@ -351,17 +359,17 @@ int App::stampWall(InstanceRT& r, const WallEvent& e, bool effects, std::vector<
       standoff = std::clamp(1.0f - dN / 0.75f, 0.0f, 1.0f);
     }
     float cosI = std::fabs(glm::dot(dn, n));
-    float elong = std::clamp(1.0f / std::max(cosI, 0.3f), 1.0f, 2.6f);   // oblique hits gouge along the shot
-    float rad = pr.r * std::sqrt(strength) * (timber ? 1.25f : 1.0f) * (blast ? 0.7f + 0.3f * standoff : 1.0f);
+    float elong = rampart ? 1.0f : std::clamp(1.0f / std::max(cosI, 0.3f), 1.0f, 2.6f);   // oblique hits gouge along the shot
+    float rad = rampart ? kRampartRad : pr.r * std::sqrt(strength) * (timber ? 1.25f : 1.0f) * (blast ? 0.7f + 0.3f * standoff : 1.0f);
     float reach = rad * elong * 2.0f + cell;   // the oblong, lobed, ragged outline reaches up to ~1.9 rad
     // gate: the contact lies on / near this bay's face slab (within 0.2 m along its normal; a grenade 0.6 m) and
     // within the stamp's reach in its plane -- so a corner hit also bites the edge of the wall around the corner,
     // but walls in other parallel planes are never touched
     {
       float du = std::max({bmn[f.au] - ep[f.au], ep[f.au] - bmx[f.au], 0.0f}), dv = std::max({bmn[f.av] - ep[f.av], ep[f.av] - bmx[f.av], 0.0f});
-      if (dN > (blast ? 0.6f : 0.2f) || std::sqrt(du * du + dv * dv) > rad * elong * 1.3f) continue;
+      if (dN > (blast ? 0.6f : rampart ? 0.5f : 0.2f) || std::sqrt(du * du + dv * dv) > rad * elong * 1.3f) continue;   // a rampart's courses can step back 0.3 m (its plinth)
     }
-    float D = pr.depth * strength * (0.55f + 0.45f * cosI) / resist * (blast ? 0.35f + 0.65f * standoff : 1.0f);
+    float D = rampart ? kRampartBite * f.T : pr.depth * strength * (0.55f + 0.45f * cosI) / resist * (blast ? 0.35f + 0.65f * standoff : 1.0f);
     bool fromFront = glm::dot(dn, n) <= 0.0f;   // travelling against the normal: struck the front face
     // tangential direction of travel in the bay's (u, v) plane
     vec2 t(dn[f.au], dn[f.av]); float tl = glm::length(t); t = tl > 1e-4f ? t / tl : vec2(1, 0);
@@ -382,6 +390,9 @@ int App::stampWall(InstanceRT& r, const WallEvent& e, bool effects, std::vector<
         if (timber) {   // boards split along the vertical grain: a tall, lobed slot
           d.y /= 2.2f;
           Outline og = ol; og.sa = 1.0f; og.c = 1.0f; og.s = 0.0f;
+          q = outlineQ(og, d, rad);
+        } else if (rampart) {   // upright: about 1 m wide, 2 m tall (u along the wall, v up)
+          Outline og = ol; og.sa = std::sqrt(0.5f); og.c = 1.0f; og.s = 0.0f;
           q = outlineQ(og, d, rad);
         } else {
           float along = glm::dot(d, t), perp = glm::dot(d, vec2(-t.y, t.x));
@@ -519,7 +530,7 @@ int App::stampWall(InstanceRT& r, const WallEvent& e, bool effects, std::vector<
   };
   // a blast, shell or ram within reach of the trim breaks it whole (game tuning: about the crater's core)
   {
-    float tr = e.kind == WALL_HE ? 0.5f : e.kind == WALL_AP ? 0.35f : e.kind == WALL_ROCKET ? 0.4f : e.kind == WALL_GRENADE ? 0.45f : e.kind == WALL_RAM ? 0.6f : -1.0f;
+    float tr = e.kind == WALL_HE || e.kind == WALL_CANNON ? 0.5f : e.kind == WALL_AP ? 0.35f : e.kind == WALL_ROCKET ? 0.4f : e.kind == WALL_GRENADE ? 0.45f : e.kind == WALL_RAM ? 0.6f : -1.0f;
     if (e.kind != WALL_RAM) tr *= std::clamp(std::sqrt(strength), 0.5f, 2.0f);
     for (size_t g = 0; g < a->trims.size() && tr > 0; ++g) {
       const TrimGroup& t = a->trims[g];

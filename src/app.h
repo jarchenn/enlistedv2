@@ -19,7 +19,7 @@ enum class Mode { Creative, Explore };
 enum class Tool { Select, Place, Marker, Terrain, Lasso };   // Terrain: V8 sculpt brush (terrain_brush.cpp); Lasso: lasso.cpp
 
 // Impact-centred wall damage (wallfield.cpp): per bay, depth removed from the front and back face per cell.
-enum WallHitKind { WALL_HE = 0, WALL_AP = 1, WALL_ROCKET = 2, WALL_GRENADE = 3, WALL_BULLET = 4, WALL_RAM = 5 };   // WALL_RAM: a tank against opening trim (breaks it, stamps nothing)
+enum WallHitKind { WALL_HE = 0, WALL_AP = 1, WALL_ROCKET = 2, WALL_GRENADE = 3, WALL_BULLET = 4, WALL_RAM = 5, WALL_CANNON = 6 };   // WALL_RAM: a tank against opening trim (breaks it, stamps nothing); WALL_CANNON (CW4): round shot from a CAN1 cannon: an HE shell on ordinary walls, the only hit that breaches a "rampart" bay
 struct WallEvent { vec3 p{0}, d{0, 0, -1}; int kind = WALL_HE; float dmg = 120; uint32_t seed = 1; };   // asset-local contact, direction
 struct WallField {
   std::vector<float> rf, rb;   // removed depth (m) from the front (+normal) and back face, per cell
