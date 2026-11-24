@@ -64,10 +64,10 @@ float coordOf(const Frame& f, float s) { return f.front - f.ns * s; }
 // stamp parameters (game tuning, docs/destruction.md): in-plane radius and removal depth into masonry of
 // resistance 1 (HP 200), scaled by sqrt(damage / reference)
 struct Profile { float r, depth, ref; };
-// CW4 rampart (docs/destruction.md#rampart): the outline's radius (x 0.71 across, x 1.41 up: ~1.0 x 2.0 m) and the share
-// of the bay's thickness one cannon shot removes (2 shots > 1: through; one leaves a deep crater, under the 0.72 that
-// would punch through on its own)
-constexpr float kRampartRad = 0.71f, kRampartBite = 0.56f;
+// CW4 rampart (docs/destruction.md#rampart): the outline's radius (round, ~2 m across through the wall), the share of the
+// bay's thickness one cannon shot removes (2 shots > 1: through; one leaves a deep crater, under the 0.72 that would
+// punch through on its own), and the height under which a hit's hole is set on the wall's foot (walkable: no sill)
+constexpr float kRampartRad = 1.25f, kRampartBite = 0.56f, kRampartLow = 3.0f;
 Profile profileFor(int kind) {
   switch (kind) {
     case WALL_AP:      return {0.80f, 1.60f, 320.0f};   // AT / tank-gun shot: large, deep, perforates masonry and 1 m concrete in one hit
@@ -374,6 +374,7 @@ int App::stampWall(InstanceRT& r, const WallEvent& e, bool effects, std::vector<
     // tangential direction of travel in the bay's (u, v) plane
     vec2 t(dn[f.au], dn[f.av]); float tl = glm::length(t); t = tl > 1e-4f ? t / tl : vec2(1, 0);
     float pu = ep[f.au], pv = ep[f.av];
+    if (rampart && pv < kRampartLow) pv = rad;   // CW4b: a low hit blows its hole out down to the foot (asset y 0)
     int iu0 = std::max(0, (int)std::floor((pu - reach - f.u0) / f.cu)), iu1 = std::min(f.nu - 1, (int)std::floor((pu + reach - f.u0) / f.cu));
     int iv0 = std::max(0, (int)std::floor((pv - reach - f.v0) / f.cv)), iv1 = std::min(f.nv - 1, (int)std::floor((pv + reach - f.v0) / f.cv));
     if (iu0 > iu1 || iv0 > iv1) continue;
@@ -391,9 +392,9 @@ int App::stampWall(InstanceRT& r, const WallEvent& e, bool effects, std::vector<
           d.y /= 2.2f;
           Outline og = ol; og.sa = 1.0f; og.c = 1.0f; og.s = 0.0f;
           q = outlineQ(og, d, rad);
-        } else if (rampart) {   // upright: about 1 m wide, 2 m tall (u along the wall, v up)
-          Outline og = ol; og.sa = std::sqrt(0.5f); og.c = 1.0f; og.s = 0.0f;
-          q = outlineQ(og, d, rad);
+        } else if (rampart) {   // CW4b: round, ragged all round; below the centre the sides drop straight (it opens to the foot)
+          Outline og = ol; og.sa = 1.0f; og.c = 1.0f; og.s = 0.0f;
+          q = outlineQ(og, vec2(d.x, std::max(d.y, 0.0f)), rad);
         } else {
           float along = glm::dot(d, t), perp = glm::dot(d, vec2(-t.y, t.x));
           if (tl > 1e-4f) along /= elong;   // oblique: stretched along the shot

@@ -1,6 +1,8 @@
 // --selftest-damage: wall breaching (M1) and ground deformation (M2) integration tests.
 // Impacts are injected through App::explode, the same resolver the PaK 40 shell calls.
 #include "selftest.h"
+#include "nav.h"
+#include "nav_geom.h"
 #include <GLFW/glfw3.h>
 #include <fstream>
 #include <algorithm>
@@ -216,11 +218,12 @@ void SelfTest::damageUpdate(App& app, float dt) {
         hitAt(app, X.R, at, in, WALL_CANNON, 160.0f);
         check(app.rt[X.R].state[k0] == PANEL_DAMAGED && !through(1.15f), "city wall: one cannon shot leaves a deep crater, not a hole");
         hitAt(app, X.R, at + vec3(0.1f, 0.15f, 0), in, WALL_CANNON, 160.0f);
-        bool low = through(0.25f), mid = through(1.1f), high = through(1.85f), side = through(1.1f);
-        float wide = removedWidth(app, X.R, k0);
-        char b[200]; std::snprintf(b, sizeof b, "city wall: a second cannon shot on the stretch opens a man-sized hole through 4.6 m (rays at 0.25 %d, 1.1 %d, 1.85 m %d; %.2f m wide)", (int)low, (int)mid, (int)high, wide);
-        check(app.rt[X.R].state[k0] == PANEL_BREACHED && low && mid && high && wide >= 0.8f, b);
-        (void)side;
+        auto thr = [&](float x, float y) { Physics::Hit h; vec3 o = W(app, X.R, vec3(x, y, front + 0.3f)), d = Wd(app, X.R, vec3(0, 0, -1)); return !Physics::castRayEx(o, d, 5.5f, h) || h.ud != wallUD(X.R); };
+        float top = 0, wide = 0;
+        for (int u = 0; u < 40; ++u) if (thr(cx, 0.05f + u * 0.1f)) top = 0.05f + u * 0.1f;          // how high it is open at the centre
+        for (int u = -25; u <= 25; ++u) if (thr(cx + u * 0.1f, 1.0f)) wide += 0.1f;                 // how wide at 1 m
+        char b[240]; std::snprintf(b, sizeof b, "city wall: a second cannon shot on the stretch opens a round hole through 4.6 m from the ground (open at the foot %d, to %.2f m high, %.2f m wide at 1 m)", (int)thr(cx, 0.05f), top, wide);
+        check(app.rt[X.R].state[k0] == PANEL_BREACHED && thr(cx, 0.05f) && top >= 1.85f && wide >= 1.6f && std::fabs(wide - top) <= 0.25f * std::max(wide, top), b);
       }
     }
     summary["panel_rebuild_ms_farmhouse"] = app.rt[X.A].lastPanelMs;
@@ -431,7 +434,35 @@ void SelfTest::damageUpdate(App& app, float dt) {
     }
     break;
   case 520:
-    if (runWalkthrough(app, dt)) { app.scriptedInput.crouch = false; go(508); }
+    if (runWalkthrough(app, dt)) { app.scriptedInput.crouch = false; go(X.R ? 530 : 508); }
+    break;
+  case 530: {   // CW4b: the city-wall breach (made in 501) is walked through upright and found by the navmesh
+    const AssetDef* ra = app.rt[X.R].asset;
+    int k0 = pidx(ra, "rampart/0-1");
+    const Panel& p0 = ra->panels[k0];
+    float cx = 0.5f * (p0.bmin.x + p0.bmax.x);
+    Nav* nav = new Nav();   // a local navmesh over a strip narrower than the section: the only way through is the hole
+    nav->classify = [](uint64_t) { return (int)NT_SOLID; };
+    vec3 c = W(app, X.R, vec3(cx, 0, 0)); nav->build(c - vec3(3.0f, 12.0f, 9.0f), c + vec3(3.0f, 12.0f, 9.0f), 2);
+    vec3 A = W(app, X.R, vec3(cx, 0, 6.0f)), B = W(app, X.R, vec3(cx, 0, -6.0f));
+    A.y = app.terrain.height(A.x, A.z); B.y = app.terrain.height(B.x, B.z);
+    std::vector<vec3> pts; float len = 0;
+    bool path = nav->pathSync(A, B, pts, nullptr, nullptr, &len) && !pts.empty() && glm::length(pts.back() - B) < 1.2f;
+    char b[160]; std::snprintf(b, sizeof b, "city wall: the navmesh goes through the cannon breach (path %d, %.1f m for 12 m straight)", (int)path, len);
+    check(path && len < 16.0f, b);
+    delete nav;
+    Physics::setCharacterPos(W(app, X.R, vec3(cx, 0, 5.0f)) + vec3(0, 0.05f, 0));
+    app.eyeYaw = worldYaw(app, 180);
+    json st = json::array({
+      json{{"goto", {cx, 3.5}}},
+      json{{"goto", {cx, -3.5}}, {"expectY", 0.1}, {"note", "walk upright through the cannon breach in the 4.6 m city wall"}},
+    });
+    beginCustom(app, "cw_wall", X.R, st);
+    go(531);
+    break;
+  }
+  case 531:
+    if (runWalkthrough(app, dt)) go(508);
     break;
   // ------------------------------------------------------------- every variant, rotated, off-centre impacts
   case 508: {
