@@ -102,11 +102,7 @@
    0.9867,
    -0.8007
   ],
-  "gunner": [
-   0.55,
-   0.0,
-   -1.001
-  ],
+  "gunner": [0.62, 0, -1.3],
   "handler": [
    0.0,
    0.0,
@@ -148,6 +144,7 @@
   "label": "Mortar on a truck carriage",
   "heName": "Round shot",
   "sightFov": 34,
+  "aimEye": [0, 0.42, -1.9],
   "muzzleScale": 1.9,
   "fireSound": "pak_fire",
   "shellHE": {

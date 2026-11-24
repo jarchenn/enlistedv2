@@ -116,6 +116,7 @@ bool App::stationCamera(vec3& eye, vec3& fwd, float& fov) const {
   const StationDef& s = r.asset->station;
   vec3 se = s.optic - s.elevPivot, sf; fov = s.sightFov;   // PaK 40 ZF 3x8: 8 deg real field fills the eyepiece circle (9); others from the asset
   if (s.kind == "mg42") mg42MountSight(*this, se, sf, fov);   // the handheld MG 42's ADS eye and FOV
+  if (cannonKind(s.kind) && s.hasAimEye) se = s.aimEye;   // TRE3: above and behind the breech, along the top of the tube (the barrel in the lower third, the muzzle ahead)
   eye = vec3(e * vec4(se, 1));
   if (trebKind(s.kind)) {   // TRE2: from the operator's side, at eye height, along the frame, looking a little up for the longer shots
     eye = vec3(b * vec4((r.st.side ? s.gunner2 : s.gunner) + vec3(0, 1.65f, 0), 1));
@@ -601,6 +602,22 @@ vec3 App::trebuchetRelease(const Instance& i, const InstanceRT& r, vec3& dir, fl
   const vec3 fw = yawQuat(r.st.carYaw) * vec3(0, 0, 1); dir = glm::normalize(fw * std::cos(radians(d.launchDeg)) + vec3(0, std::sin(radians(d.launchDeg)), 0));
   speed = trebShotSpeed(d, r.st.elev); return trebuchetStone(i, at);
 }
+// TRE3: is a point of the trajectory line hidden from the eye: behind one of the gun's own parts (their boxes, posed as
+// drawn: the carriage, the tube at its elevation, the trebuchet's arm on its timeline) or behind the world (its colliders)
+bool App::arcHidden(const Instance& i, const InstanceRT& r, vec3 eye, vec3 p) const {
+  const vec3 d = p - eye; const float L = glm::length(d); if (L < 0.1f) return false; const vec3 u = d / L;
+  if (const GpuModel* gm = r.asset->model.get()) {
+    mat4 b, y, e, rc; stationParts(i, r, b, y, e, rc); const StationDef& sd = r.asset->station; const auto& role = sd.modelRole;
+    for (size_t k = 0; k < gm->parts.size() && k < role.size(); ++k) {
+      mat4 M = role[k] == 2 || role[k] == 3 ? e * glm::translate(mat4(1), -sd.elevPivot) : b;
+      if (role[k] == 6 || role[k] == 7) { if (role[k] == 7) continue; M = b * gm->animAt((int)k, gm->animDuration > 0 ? trebuchetClipTime(r) / gm->animDuration : 0.0f); }
+      if (role[k] == 8 || role[k] == 5) continue;
+      const vec3 c = vec3(M * vec4((gm->parts[k].bmin + gm->parts[k].bmax) * 0.5f, 1)), he = (gm->parts[k].bmax - gm->parts[k].bmin) * 0.5f; float t;
+      if (rayOBB(eye, u, c, he, glm::quat_cast(glm::mat3(M)), t) && t > 0 && t < L - 0.05f) return true;
+    }
+  }
+  Physics::Hit h; return Physics::castRayEx(eye, u, L, h, coreUD(i.id)) && h.t < L - 0.3f;
+}
 // TRE2: the aimed shot's path as stepProjectiles flies it (Euler at 120 Hz, g x the shot's gravity factor, no drag), from
 // `from` until the first thing it would strike (the gun itself ignored), the ground, or the projectile's 9 s life
 std::vector<vec3> App::shotArc(vec3 from, vec3 v, float grav, uint64_t ignore, vec3* hitPos) const {
@@ -779,8 +796,8 @@ void App::drawCombatUI() {
     if (trebKind(d.kind)) dl->AddText(ImVec2(c.x + 14, c.y + 12), IM_COL32(240, 240, 230, 220), e);
     if (R.perf.trajLine && arc.size() > 1) {
       const mat4 vp = projM * viewM; auto scr = [&](vec3 w, ImVec2& o) { vec4 cc = vp * vec4(w, 1); if (cc.w < 0.05f) return false; o = ImVec2((cc.x / cc.w * 0.5f + 0.5f) * io.DisplaySize.x, (0.5f - cc.y / cc.w * 0.5f) * io.DisplaySize.y); return true; };
-      std::vector<ImVec2> pl; float run = 0;
-      for (size_t k = 0; k < arc.size(); ++k) { if (k) run += glm::length(arc[k] - arc[k - 1]); if (run < skip) continue; ImVec2 q; if (scr(arc[k], q)) pl.push_back(q); else if (pl.size() > 1) { dl->AddPolyline(pl.data(), (int)pl.size(), IM_COL32(255, 236, 170, 210), 0, 2.0f); pl.clear(); } }
+      std::vector<ImVec2> pl; float run = 0; vec3 ce, cf; float cfov; const bool cam = stationCamera(ce, cf, cfov); if (!cam) ce = eyePos();
+      for (size_t k = 0; k < arc.size(); ++k) { if (k) run += glm::length(arc[k] - arc[k - 1]); if (run < skip) continue; ImVec2 q; if (scr(arc[k], q) && !arcHidden(*ti, r, ce, arc[k])) pl.push_back(q); else if (pl.size() > 1) { dl->AddPolyline(pl.data(), (int)pl.size(), IM_COL32(255, 236, 170, 210), 0, 2.0f); pl.clear(); } }
       if (pl.size() > 1) dl->AddPolyline(pl.data(), (int)pl.size(), IM_COL32(255, 236, 170, 210), 0, 2.0f);
       std::vector<ImVec2> ring; for (int k = 0; k <= 24; ++k) { const float a = k * 6.2831853f / 24; ImVec2 q; vec3 w = land + vec3(std::cos(a), 0, std::sin(a)) * std::max(1.5f, d.heRadius * 0.5f); w.y = std::max(land.y, terrain.height(w.x, w.z)) + 0.05f; if (scr(w, q)) ring.push_back(q); }
       if (ring.size() > 2) dl->AddPolyline(ring.data(), (int)ring.size(), IM_COL32(255, 200, 110, 235), 0, 2.5f);
@@ -788,7 +805,7 @@ void App::drawCombatUI() {
     }
   }
   if (s->pos2 == ST_GUNNER && cannonKind(d.kind)) { char e[64]; std::snprintf(e, sizeof e, "Elevation %+.0f\xC2\xB0%s", s->elev, s->fuse >= 0 ? "   FUSE LIT" : ""); dl->AddText(ImVec2(c.x + 14, c.y + 12), IM_COL32(240, 240, 230, 220), e); }
-  if (s->pos2 == ST_GUNNER && !mgKind(d.kind) && !cannonKind(d.kind)) {
+  if (s->pos2 == ST_GUNNER && !mgKind(d.kind) && !cannonKind(d.kind) && !trebKind(d.kind)) {
     // TZF-style optic: the eyepiece, its soft black surround and the reticle are drawn by the renderer (render.cpp
     // eyepiece pass); the shell / traverse / elevation readout sits at the bottom right of the eyepiece
     float R = io.DisplaySize.y * kGunnerEyepieceR;
@@ -862,6 +879,12 @@ int cannonSelfCheck() {
     ok(std::fabs(-x - rc) < 0.05f * rc + 0.01f, n + " rolls back " + std::to_string(-x).substr(0, 4) + " m (recoil " + std::to_string(rc).substr(0, 4) + ")");
     v = 0; float t = 0; while (v < push - 1e-3f && t < 10) { v = cannonSpeed(v, push, push, 1.0f / 120); t += 1.0f / 120; }
     ok(t >= 1.5f && t <= 3.0f, n + " a push reaches walking pace in " + std::to_string(t).substr(0, 4) + " s");
+    {   // TRE3: the gunner's spot is clear of the gun's own collider boxes by the player's radius (the mortar's refused every crew)
+      const vec3 g = jvec3(st["gunner"]); float gap = 1e9f;
+      for (auto& pj : j.value("parts", json::array())) { const vec3 c = jvec3(pj["c"]), h = jvec3(pj["s"]) * 0.5f; const vec2 q(std::max(0.0f, std::fabs(g.x - c.x) - h.x), std::max(0.0f, std::fabs(g.z - c.z) - h.z)); gap = std::min(gap, glm::length(q)); }
+      ok(gap >= Physics::radius() + 0.02f, n + " the gunner's spot clears the carriage by " + std::to_string(gap).substr(0, 4) + " m (player radius " + std::to_string(Physics::radius()).substr(0, 4) + ")");
+      ok(st.contains("aimEye") && st["aimEye"][1].get<float>() > 0.3f, n + " the aiming eye sits above the tube");
+    }
   }
   std::printf("[can1] %s (%d failed)\n", fails ? "FAIL" : "PASS", fails);
   return fails ? 1 : 0;

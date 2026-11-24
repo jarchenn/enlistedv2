@@ -1122,6 +1122,7 @@ void AssetLibrary::build(AssetDef& ad) const {
     st.vent = jvec3(jkey(sj, "vent"), st.muzzle); st.fuseTip = jvec3(jkey(sj, "fuseTip"), st.vent); st.fuseTime = sj.value("fuseTime", 1.0f); st.pushSpeed = sj.value("pushSpeed", 0.9f);   // CAN1
     st.heGravity = jkey(sj, "shellHE").value("gravity", 1.0f);
     if (sj.contains("gunner2")) { st.gunner2 = jvec3(sj["gunner2"]); st.twoSides = true; }   // TRE2
+    if (sj.contains("aimEye")) { st.aimEye = jvec3(sj["aimEye"]); st.hasAimEye = true; }   // TRE3
     if (sj.contains("trebuchet")) { const json& tj = sj["trebuchet"];   // TRE1
       st.trebFire = tj.value("fire", st.trebFire); st.trebReloadAt = tj.value("reloadAt", st.trebReloadAt); st.trebReload = tj.value("reload", st.trebReload); st.trebRelease = tj.value("release", st.trebRelease);
       st.trebStoneBack = tj.value("stoneBack", st.trebStoneBack); if (tj.contains("speed") && tj["speed"].size() == 3) { st.speedLo = tj["speed"][0]; st.speed0 = tj["speed"][1]; st.speedHi = tj["speed"][2]; } st.launchDeg = tj.value("launchDeg", st.launchDeg); }
