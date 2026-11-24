@@ -629,6 +629,7 @@ void netApplyEvent(App& app, const json& ev, bool replay) {
       vec3 p = jvec3(ev["p"]), dir = glm::normalize(jvec3(jkey(ev, "d"), vec3(0, 0, 1)));
       bool mg = sd.kind == "mg42" || sd.kind == "m2hb";
       s->recoilT = 0; s->shots++;
+      if (sd.kind == "trebuchet") { s->treb = 1; s->trebT = sd.trebRelease; s->trebMine = false; }   // TRE1: the arm seen swinging on from the release (the reload follows from the snapshots)
       g.ghosts.push_back({p, dir * (sd.kind == "mg42" ? 755.0f : mg ? 890.0f : sd.heVelocity), 0, ev.value("tr", 0)});
       if (mg) { app.fx.flash(p + dir * 0.08f, 0.18f, 0.04f, vec4(9, 6, 2.5f, 1)); app.audio.play(sd.kind == "mg42" ? "shot_mg42" : "shot_m2hb", p, 1.0f); }
       else { app.fx.muzzle(p, dir, sd.muzzleScale); app.audio.play(sd.fireSound, p, 1.0f); }

@@ -299,6 +299,7 @@ void App::exploreStep(float dt, const ExploreInput& in) {
     if (wasInTank || tanks.occupied) { target = {}; blastShake = std::max(0.0f, blastShake - dt * 1.5f); stepProjectiles(dt); fx.update(dt, terrain); return; }   // VH5c: the shake decays in vehicles too
   }
   if (!occupied) { build.dt = dt; stepBuilder(in); }
+  trebuchetStep(dt);   // TRE1: crewed or not, a shot in the air finishes its swing and the crew reloads
   if (occupied) { stepStation(dt, in); }
   else if (build.active || mantle.active || swim.active) { ExploreInput w = in; w.fire = w.aim = w.reload = false; w.nextWeapon = false; w.choose1 = w.choose2 = w.slot3 = w.slot4 = false; w.wheel = 0; if (swim.active) w.quickGrenade = false; stepWeapons(dt, w); }   // weapon lowered while building / climbing / swimming
   else if (lootInventoryOpen()) { ExploreInput w = in; w.fire = w.aim = w.reload = false; lootBeforeWeapons(*this); stepWeapons(dt, w); lootAfterWeapons(*this); }   // BR2: the inventory screen is open
