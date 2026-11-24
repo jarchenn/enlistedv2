@@ -14,7 +14,7 @@ const std::vector<std::string>* treeAlias(const std::string& id) {
     std::map<std::string, std::vector<std::string>> t;
     for (const char* f : {"tree_aliases.json", "rock_aliases.json"}) try {
       json j = json::parse(readTextFile(contentDir() / "settings" / f));
-      for (auto& [k, v] : j.value("aliases", json::object()).items()) for (auto& x : v) t[k].push_back(x.get<std::string>());
+      { const json aliasJ = j.value("aliases", json::object()); for (auto& [k, v] : aliasJ.items()) for (auto& x : v) t[k].push_back(x.get<std::string>()); }
       for (auto& x : j.value("removed", json::array())) gAliasRemoved.insert(x.get<std::string>());
     } catch (...) {}
     return t;

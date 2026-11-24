@@ -456,7 +456,7 @@ void buildNatureAsset(AssetDef& a, const json& j, std::vector<vec3>& pts) {
     if (sj.contains("heightScale")) { n.hMin = sj["heightScale"][0].get<float>(); n.hMax = sj["heightScale"][1].get<float>(); }
     n.square = sj.value("shape", std::string("disc")) == "square";
     if (sj.contains("dry")) { n.dryMin = sj["dry"][0].get<float>(); n.dryMax = sj["dry"][1].get<float>(); }
-    for (auto& [name, c] : sj.value("tint", json::object()).items()) { int sp = natSpeciesFrom(name); if (sp >= 0) n.tint.push_back({sp, jvec3(c, vec3(0.2f))}); }
+    const json tintJ = sj.value("tint", json::object()); for (auto& [name, c] : tintJ.items()) { int sp = natSpeciesFrom(name); if (sp >= 0) n.tint.push_back({sp, jvec3(c, vec3(0.2f))}); }
     if (sj.contains("pebbles")) {
       auto& pb = sj["pebbles"]; n.pebDensity = pb.value("density", 2.0f); n.pebLith = lithFrom(pb.value("lith", json("mixed")));
       if (pb.contains("size")) { n.pebMin = pb["size"][0].get<float>(); n.pebMax = pb["size"][1].get<float>(); }

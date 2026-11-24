@@ -433,7 +433,7 @@ int Audio::loadCustom(const fs::path& dir) {
   const json mixGuns = mx.contains("guns") && mx["guns"].is_object() ? mx["guns"] : json::object();   // id: gain, or {gain, body}
   if (mx.contains("reload") && mx["reload"].is_object()) {   // WP6: reload foley level (dB) and per-weapon trims
     const json& rl = mx["reload"]; p->reloadGain = std::pow(10.0f, rl.value("gain_db", 7.0f) / 20.0f);
-    for (auto& [k, v] : rl.value("trim_db", json::object()).items()) if (v.is_number()) p->reloadTrim[k] = std::pow(10.0f, v.get<float>() / 20.0f);
+    { const json trimJ = rl.value("trim_db", json::object()); for (auto& [k, v] : trimJ.items()) if (v.is_number()) p->reloadTrim[k] = std::pow(10.0f, v.get<float>() / 20.0f); }
   }
   int used = 0; Buf b;
   struct StepSet { const char* file; std::vector<const char*> names; size_t gap = 25; };   // gap: onsets at least this many 10 ms windows apart
