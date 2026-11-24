@@ -42,6 +42,7 @@ struct ZombieCfg {
   float repath = 0.5f, flinch = 0.6f;
   std::vector<EnemyType> types;   // EN1: [0] the plain zombie
   std::vector<std::pair<std::string, float>> assorted;   // AK1 json "assorted": [[type id, weight]]: AI type Assorted Knights' mix
+  std::vector<std::pair<std::string, float>> imperial;   // IS2 json "imperial_mix": AI type Imperial Soldier's variants
   std::map<std::string, std::string> deathDirs;   // KD1 json "death_dirs": {clip: the hit it suits: front / back / left / right / any} (where the clip's hips fall)
   // PF1 packs and LOD
   bool packs = true; int packMin = 20, packSize = 8; float join = 35, breakOff = 4, spacing = 1.6f, leaderPace = 0.9f, catchUp = 1.25f;
@@ -125,6 +126,7 @@ const ZombieCfg& zcfg() {
         c.types.push_back(t);
       }
       for (auto& a : j.value("assorted", json::array())) if (a.is_array() && a.size() == 2) c.assorted.push_back({a[0].get<std::string>(), std::max(0.0f, a[1].get<float>())});   // AK1
+      for (auto& a : j.value("imperial_mix", json::array())) if (a.is_array() && a.size() == 2) c.imperial.push_back({a[0].get<std::string>(), std::max(0.0f, a[1].get<float>())});   // IS2
       { const json dd = j.value("death_dirs", json::object());   // RL2: kept in a named json: items() over the temporary j.value() returned dangled, and no tag ever loaded
         for (auto& [k, v] : dd.items()) if (v.is_string()) c.deathDirs[k] = v.get<std::string>(); }   // KD1
       json p = j.value("pack", json::object());
@@ -471,18 +473,20 @@ static void npcStep(Game& G, AiCore& A, Soldier& s, BotMind& m, const EnemyType&
   if (there) { m.speed = SPD_STOP; b.why = "npc: standing"; }
   else { m.speed = SPD_ZOMBIE; m.zSpeed = e.walk; b.why = "npc: wandering"; vec3 d = m.moveDir; if (zLenXZ(d) > 0.05f) b.aimYaw = degrees(std::atan2(-d.x, -d.z)); }
 }
-int enemyTypeAssortedPick(uint32_t seed) {
+static int mixPick(const std::vector<std::pair<std::string, float>>& mix, uint32_t seed, const char* none) {   // AK1 / IS2: a weighted draw, deterministic per slot
   std::vector<std::pair<int, float>> P; float tot = 0;
-  for (auto& [id, w] : zcfg().assorted) {
+  for (auto& [id, w] : mix) {
     int k = enemyTypeIndex(id); if (k < 0 || w <= 0) continue;
     if (!fs::exists(contentDir() / "characters" / (enemyType(k).model + ".glb"))) continue;
     P.push_back({k, w}); tot += w;
   }
-  if (P.empty()) return std::max(0, enemyTypeIndex("knight"));
+  if (P.empty()) return std::max(0, enemyTypeIndex(none));
   float u = ((seed * 2654435761u) >> 8) / 16777216.0f * tot;
   for (auto& [k, w] : P) { u -= w; if (u < 0) return k; }
   return P.back().first;
 }
+int enemyTypeAssortedPick(uint32_t seed) { return mixPick(zcfg().assorted, seed, "knight"); }
+int enemyTypeImperialPick(uint32_t seed) { return mixPick(zcfg().imperial, seed, "knight_spear"); }
 int enemyTypePick(uint32_t seed) {
   const auto& T = zcfg().types;
   float tot = 0; for (auto& t : T) tot += t.weight;
@@ -1153,18 +1157,27 @@ int ar1SelfCheck() {
       for (auto& c : need) ok = ok && clips.count(c);
       ok = ok && nodes.count("mixamorig:Weapon") && nodes.count("sword"); msg = std::to_string(clips.size()) + " clips, the Weapon joint and the sword"; }
     chk(ok, "Paladin 2 (PK2): AI type 52, the Paladin's clips and attacks, its own model (the Paladin without it); " + msg); }
-  {   // IS1: AI types 55-57 Imperial Soldiers: melee, the Spear Knight's entry on local-only models (the Spear Knight without them), not in Assorted
-    bool ok = (int)AiType::ImperialYari == 55 && (int)AiType::ImperialGilded == 56 && (int)AiType::ImperialMoon == 57 && kAiTypeCount > 57; std::string have;
-    const int sk = enemyTypeIndex("knight_spear"); ok = ok && sk >= 0;
-    for (const char* id : {"imperial_yari", "imperial_gilded", "imperial_moon"}) {
+  {   // IS1 / IS2: AI type 55 Imperial Soldier: melee, a variant per slot from "imperial_mix" (yari, gilded spear, spear: the moon spear is out),
+    // 56 / 57 retired into it, one egg (the variants' own hidden), none in Assorted; each variant here: the Spear Knight's health, thrusts and clips,
+    // a strike on the right hand near its spear's tip, a knight's size; 60 slots draw more than one variant when two or more have their models
+    bool ok = (int)AiType::ImperialSoldier == 55 && std::string(aiTypeName(AiType::ImperialSoldier)) == "Imperial Soldier" && !aiTypeRetired(55) && !Game::soldierBrain(AiType::ImperialSoldier);
+    for (int r : {56, 57}) ok = ok && aiTypeRetired(r) && aiTypeRetiredTo(r) == AiType::ImperialSoldier && std::string(aiTypeName((AiType)r)) == "(retired)";
+    std::set<std::string> mix; for (auto& [m, w] : zcfg().imperial) mix.insert(m); ok = ok && mix == std::set<std::string>{"imperial_yari", "imperial_gilded", "imperial_spear"};
+    std::vector<std::string> eggNames();   // eggs.cpp
+    int eggs = 0; for (auto& e : eggNames()) eggs += e == "Imperial Soldier"; ok = ok && eggs == 1;
+    const int sk = enemyTypeIndex("knight_spear"); ok = ok && sk >= 0; std::string have; int present = 0;
+    for (const char* id : {"imperial_yari", "imperial_gilded", "imperial_spear", "imperial_moon"}) {
       bool inMix = false; for (auto& [m, w] : zcfg().assorted) inMix = inMix || m == id; ok = ok && !inMix;
       const int k = enemyTypeIndex(id); if (k < 0 || sk < 0) continue;
-      const EnemyType& t = enemyType(k), &s0 = enemyType(sk); have += std::string(have.empty() ? "" : ", ") + id;
+      const EnemyType& t = enemyType(k), &s0 = enemyType(sk); ok = ok && !t.egg;
+      if (!fs::exists(contentDir() / "characters" / (t.model + ".glb")) || std::string(id) == "imperial_moon") continue;
+      have += std::string(have.empty() ? "" : ", ") + id; ++present;
       ok = ok && t.hp == s0.hp && t.attackClips == s0.attackClips && t.attackSpecs.size() == s0.attackSpecs.size() && t.weight == 0 && t.reach > s0.reach && t.height > 2.0f && t.height < 2.3f;
       for (auto& x : t.attackSpecs) ok = ok && x.bone == "mixamorig:RightHand" && x.hasAt && glm::length(x.at) > 140.0f && glm::length(x.at) < 200.0f;
     }
-    for (AiType a : {AiType::ImperialYari, AiType::ImperialGilded, AiType::ImperialMoon}) ok = ok && !Game::soldierBrain(a) && std::string(aiTypeName(a)).rfind("Imperial Soldier", 0) == 0;
-    chk(ok, "Imperial Soldiers (IS1): AI types 55-57, melee, not in Assorted; " + (have.empty() ? std::string("models absent (local-only): the Spear Knight") : "local types " + have + ": the Spear Knight's health, thrusts and clips, strikes on the right hand near each spear's tip, knight size")); }
+    std::set<int> drawn; for (uint32_t r = 0; r < 60; ++r) drawn.insert(enemyTypeImperialPick(r));
+    ok = ok && (present < 2 || (int)drawn.size() >= 2) && (present > 0 || (drawn.size() == 1 && *drawn.begin() == sk));
+    chk(ok, "Imperial Soldier (IS2): AI type 55 picks per slot from yari / gilded spear / spear (56 / 57 retired into it), one egg, not in Assorted; " + (have.empty() ? std::string("no variant model here: the Spear Knight") : "variants here " + have + " (" + std::to_string(drawn.size()) + " drawn over 60 slots): the Spear Knight's health, thrusts and clips, strikes near each spear's tip, knight size")); }
   {   // BC1: AI type 46 Boss; a local boss_choi type is invulnerable
     const int bi = enemyTypeIndex("boss_choi");
     chk((int)AiType::Boss == 46 && kAiTypeCount > 46 && std::string(aiTypeName(AiType::Boss)) == "Boss" && !Game::soldierBrain(AiType::Boss) && (bi < 0 || enemyType(bi).invuln),

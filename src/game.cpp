@@ -305,9 +305,7 @@ void Game::setupSlotSoldier(const RosterSlot& rs, AiType ait, int variant, int& 
             : ait == AiType::Civilians ? enemyTypeNpcPick((uint32_t)rs.id)   // NPC1: one of the civilian types per slot
             : ait == AiType::SpearKnight ? std::max(0, enemyTypeIndex("knight_spear"))   // KS: the Spear Knight (its build picked per spawn from "models")
             : ait == AiType::ChineseSoldier ? std::max(0, enemyTypeIndex("chinese_soldier"))   // CS1
-            : ait == AiType::ImperialYari ? localTypeOr("imperial_yari", "chinese_imperial_yari", "knight_spear")   // IS1: local-only models: the Spear Knight without them
-            : ait == AiType::ImperialGilded ? localTypeOr("imperial_gilded", "chinese_imperial_gilded", "knight_spear")
-            : ait == AiType::ImperialMoon ? localTypeOr("imperial_moon", "chinese_imperial_moon", "knight_spear")
+            : ait == AiType::ImperialSoldier ? enemyTypeImperialPick((uint32_t)rs.id)   // IS2: a variant per slot from "imperial_mix" (the Spear Knight without their models)
             : ait == AiType::ImperialArcher ? localTypeOr("imperial_archer", "chinese_imperial_archer", "archer1")   // IA1: Archer 1 without the model
             : ait == AiType::RomanLegionary ? localTypeOr("roman_legionary", "roman_legionary", "knight")   // RL1: Knight 1 without the local model
             : ait == AiType::RomanArcher ? std::max(0, enemyTypeIndex(fs::exists(contentDir() / "characters" / "roman_archer.glb") ? "roman_archer" : fs::exists(contentDir() / "characters" / "archer_2.glb") ? "archer2" : "archer1"))   // RA1: Archer 2 (or Archer 1) were its model missing
