@@ -147,7 +147,7 @@
   "pushSpeed": 0.9,
   "label": "Mortar on a truck carriage",
   "heName": "Round shot",
-  "sightFov": 60,
+  "sightFov": 34,
   "muzzleScale": 1.9,
   "fireSound": "pak_fire",
   "shellHE": {
