@@ -625,7 +625,7 @@ std::vector<vec3> App::shotArc(vec3 from, vec3 v, float grav, uint64_t ignore, v
   std::vector<vec3> pts{from}; vec3 p = from; const float h = 1.0f / 120;
   for (float t = 0; t < 9.0f; t += h) {
     const vec3 seg = v * h; Physics::Hit hit;
-    if (Physics::castRayEx(p, seg, glm::length(seg), hit, ignore)) { pts.push_back(hit.pos); if (hitPos) *hitPos = hit.pos; if (tOut) *tOut = t + h * hit.t / std::max(1e-6f, glm::length(seg)); if (hitUd) *hitUd = hit.ud; if (hitN) *hitN = glm::length(hit.normal) > 0.5f ? glm::normalize(hit.normal) : vec3(0, 1, 0); return pts; }
+    if (Physics::castRayEx(p, seg, glm::length(seg), hit, ignore)) { pts.push_back(hit.pos); if (hitPos) *hitPos = hit.pos; if (tOut) *tOut = t + h * hit.t / std::max(1e-6f, glm::length(seg)); if (hitUd) *hitUd = hit.ud; if (hitN) { vec3 n = glm::length(hit.normal) > 0.5f ? glm::normalize(hit.normal) : vec3(0, 1, 0); if (glm::dot(n, seg) > 0) n = -n; *hitN = n; } return pts; }   // TRE6: toward the shot (a mesh triangle may face into the wall)
     p += seg; v.y -= 9.81f * grav * h;
     if (((int)std::lround(t / h)) % 6 == 0) pts.push_back(p);   // a point every 50 ms is smooth on screen
     if (p.y < -100) break;
@@ -804,18 +804,19 @@ void App::drawCombatUI() {
       const mat4 vp = projM * viewM; auto scr = [&](vec3 w, ImVec2& o) { vec4 cc = vp * vec4(w, 1); if (cc.w < 0.05f) return false; o = ImVec2((cc.x / cc.w * 0.5f + 0.5f) * io.DisplaySize.x, (0.5f - cc.y / cc.w * 0.5f) * io.DisplaySize.y); return true; };
       const vec3 ce = vec3(glm::inverse(viewM)[3]);   // the camera this frame is drawn from (occlusion)
       std::vector<ImVec2> pl; float run = 0;
-      for (size_t k = 0; k < arc.size(); ++k) { if (k) run += glm::length(arc[k] - arc[k - 1]); if (run < skip) continue; ImVec2 q; if (scr(arc[k], q) && !arcHidden(*ti, r, ce, arc[k])) pl.push_back(q); else if (pl.size() > 1) { dl->AddPolyline(pl.data(), (int)pl.size(), IM_COL32(255, 236, 170, 210), 0, 2.0f); pl.clear(); } }
-      if (pl.size() > 1) dl->AddPolyline(pl.data(), (int)pl.size(), IM_COL32(255, 236, 170, 210), 0, 2.0f);
+      auto stroke = [&](std::vector<ImVec2>& v, ImU32 col, float w) { if (v.size() > 1) { dl->AddPolyline(v.data(), (int)v.size(), IM_COL32(20, 16, 10, 190), 0, w + 2.5f); dl->AddPolyline(v.data(), (int)v.size(), col, 0, w); } v.clear(); };   // TRE6: a dark outline reads on pale stone and dark ground alike
+      for (size_t k = 0; k < arc.size(); ++k) { if (k) run += glm::length(arc[k] - arc[k - 1]); if (run < skip) continue; ImVec2 q; if (scr(arc[k], q) && !arcHidden(*ti, r, ce, arc[k])) pl.push_back(q); else stroke(pl, IM_COL32(255, 236, 170, 235), 2.6f); }
+      stroke(pl, IM_COL32(255, 236, 170, 235), 2.6f);
       // the circle lies on the struck surface (its normal from the ray hit: upright on a wall, flat on the ground, tilted on a
-      // slope or roof), 4 cm off it; the breach's size on a wall or building, the blast's on the ground; hidden behind nearer things
+      // slope or roof), 6 cm off it, its normal turned toward the shot; the breach's size on a wall or building, the blast's on the ground; hidden behind nearer things
       const bool upright = nrm.y < 0.7f; const float rad = upright ? 1.1f : std::max(1.5f, d.heRadius);
       const vec3 t1 = glm::normalize(glm::cross(nrm, std::fabs(nrm.y) < 0.9f ? vec3(0, 1, 0) : vec3(1, 0, 0))), t2 = glm::cross(nrm, t1);
       std::vector<ImVec2> ring;
-      auto flush = [&]() { if (ring.size() > 1) dl->AddPolyline(ring.data(), (int)ring.size(), IM_COL32(255, 200, 110, 235), 0, 2.5f); ring.clear(); };
-      for (int k = 0; k <= 32; ++k) { const float a = k * 6.2831853f / 32; const vec3 w = land + nrm * 0.04f + (t1 * std::cos(a) + t2 * std::sin(a)) * rad; ImVec2 q;
+      auto flush = [&]() { stroke(ring, IM_COL32(255, 200, 110, 240), 3.0f); };
+      for (int k = 0; k <= 32; ++k) { const float a = k * 6.2831853f / 32; const vec3 w = land + nrm * 0.06f + (t1 * std::cos(a) + t2 * std::sin(a)) * rad; ImVec2 q;
         if (scr(w, q) && !arcHidden(*ti, r, ce, w)) ring.push_back(q); else flush(); }
       flush();
-      ImVec2 q; if (scr(land + nrm * 0.04f, q) && !arcHidden(*ti, r, ce, land + nrm * 0.04f)) dl->AddCircleFilled(q, 3, IM_COL32(255, 200, 110, 235));
+      ImVec2 q; if (scr(land + nrm * 0.06f, q) && !arcHidden(*ti, r, ce, land + nrm * 0.06f)) { dl->AddCircleFilled(q, 4.5f, IM_COL32(20, 16, 10, 190)); dl->AddCircleFilled(q, 3, IM_COL32(255, 200, 110, 240)); }
     }
   }
   if (s->pos2 == ST_GUNNER && !mgKind(d.kind) && !cannonKind(d.kind) && !trebKind(d.kind)) {
