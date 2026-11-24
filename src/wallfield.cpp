@@ -68,6 +68,7 @@ struct Profile { float r, depth, ref; };
 // bay's thickness one cannon shot removes (2 shots > 1: through; one leaves a deep crater, under the 0.72 that would
 // punch through on its own), and the height under which a hit's hole is set on the wall's foot (walkable: no sill)
 constexpr float kRampartRad = 1.25f, kRampartBite = 0.56f, kRampartLow = 3.0f;
+constexpr float kRampartAcross = 0.85f;   // CW4e: the outline's width share: whole course stones (long across) widen the hole more than they raise it
 Profile profileFor(int kind) {
   switch (kind) {
     case WALL_AP:      return {0.80f, 1.60f, 320.0f};   // AT / tank-gun shot: large, deep, perforates masonry and 1 m concrete in one hit
@@ -395,7 +396,7 @@ int App::stampWall(InstanceRT& r, const WallEvent& e, bool effects, std::vector<
           q = outlineQ(og, d, rad);
         } else if (rampart) {   // CW4b: round, ragged all round; below the centre the sides drop straight (it opens to the foot)
           Outline og = ol; og.sa = 1.0f; og.c = 1.0f; og.s = 0.0f;
-          q = outlineQ(og, vec2(d.x, std::max(d.y, 0.0f)), rad);
+          q = outlineQ(og, vec2(d.x / kRampartAcross, std::max(d.y, 0.0f)), rad);
         } else {
           float along = glm::dot(d, t), perp = glm::dot(d, vec2(-t.y, t.x));
           if (tl > 1e-4f) along /= elong;   // oblique: stretched along the shot
