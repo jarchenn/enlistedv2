@@ -59,7 +59,11 @@ const ZombieCfg& zcfg() {
       if (fs::exists(contentDir() / "ai" / "zombie_local.json")) {   // local-only extra enemy types (git-ignored), appended to the list
         json lj = json::parse(readTextFile(contentDir() / "ai" / "zombie_local.json"));
         if (!j.contains("types")) j["types"] = json::array();
-        for (auto& e : lj.value("types", json::array())) j["types"].push_back(e);
+        for (auto& e : lj.value("types", json::array())) {   // PA1: a local type whose id the committed list has replaces that entry in place (a local-only model of a published type); else it is appended
+          const std::string id = e.value("id", std::string()); bool replaced = false;
+          for (auto& c : j["types"]) if (!id.empty() && c.value("id", std::string()) == id) { c = e; replaced = true; logf("enemy types: '%s' from zombie_local.json replaces the committed entry", id.c_str()); break; }
+          if (!replaced) j["types"].push_back(e);
+        }
       }
       { const json& ao = aiOverrides(); if (ao.contains("types") && ao["types"].is_object() && j.contains("types"))   // UI3 (h): the user's patches (overrides.h)
           for (auto& e : j["types"]) { std::string id = e.value("id", std::string("zombie")); if (ao["types"].contains(id) && ao["types"][id].is_object()) e.merge_patch(ao["types"][id]); } }
@@ -1146,9 +1150,9 @@ int ar1SelfCheck() {
     chk(bad == 0, "Knight deaths (KD1): " + std::to_string(types) + " types, " + std::to_string(models) + " models here: every listed death clip present, more than one clip over 24 deaths, headshots for head hits" + (bad ? "; " + worst : "")); }
   {   // PK2: Paladin 2: AI type 52, the Paladin's data on its own (local-only) model; with the model here, every clip it names is in it
     int p2 = enemyTypeIndex("paladin2"), pk = enemyTypeIndex("paladin"); bool ok = p2 >= 0 && pk >= 0 && (int)AiType::Paladin2 == 52 && kAiTypeCount > 52
-      && std::string(aiTypeName(AiType::Paladin2)) == "Paladin 2" && enemyType(p2).model == "paladin_2" && enemyType(p2).attackClips == enemyType(pk).attackClips && enemyType(p2).weight == 0;
+      && std::string(aiTypeName(AiType::Paladin2)) == "Paladin 2" && (enemyType(p2).model == "paladin_2" || enemyType(p2).model == "paladin_2_axe") && enemyType(p2).attackClips == enemyType(pk).attackClips && enemyType(p2).weight == 0;
     std::string msg = "model absent: data only, the Paladin stands in";
-    std::ifstream f(contentDir() / "characters" / "paladin_2.glb", std::ios::binary); std::string g((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+    std::ifstream f(contentDir() / "characters" / ((p2 >= 0 ? enemyType(p2).model : std::string("paladin_2")) + ".glb"), std::ios::binary); std::string g((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());   // PA1: its own model (the local axe override's)
     if (ok && g.size() > 28) { uint32_t nn = 0; std::memcpy(&nn, g.data() + 12, 4); json J; try { J = json::parse(g.substr(20, nn)); } catch (...) {}
       std::set<std::string> clips, nodes; for (auto& an : J.value("animations", json::array())) clips.insert(an.value("name", std::string()));
       for (auto& nd : J.value("nodes", json::array())) nodes.insert(nd.value("name", std::string()));
@@ -1248,6 +1252,9 @@ int ar1SelfCheck() {
               && t.deathClips == std::vector<std::string>{"death_front", "death_back"} && tag("death_front") == "back" && tag("death_back") == "front";
       have = "local type: " + std::to_string(names.size()) + " clips, every one it names (walk advance, run run, staggers, death_front for a hit from behind, death_back from the front)"; }
     chk(ok, "Roman Legionary (RL1): AI type 59, melee, not in Assorted; " + have); }
+  {   // PA1: every enemy type id appears once (a zombie_local.json entry with a committed id replaces it, it is not a second type)
+    std::set<std::string> ids; int dup = 0; std::string which; for (auto& t : enemyTypes()) if (!ids.insert(t.id).second) { ++dup; which += " " + t.id; }
+    chk(dup == 0, "enemy type ids unique (PA1: a local entry replaces the committed one of its id)" + (dup ? ": duplicated" + which : std::string(""))); }
   {   // GR1: the fire curve's overlapping shots add, each x its weight; the rod is the furthest back among them; past the end a shot is off the curve
     WeaponDef d; d.fireCurveFps = 10; d.fireCurve = {{}, {}, {}}; d.fireCurve[1][6] = 2; d.fireCurve[1][9] = 0.08f;   // muzzle up 2 deg and the rod back at 0.1 s
     WeaponState w; w.curveFolded[0] = w.curveFolded[1] = false; w.curveAge[0] = 0.1f; w.curveGain[0] = 1; w.curveAge[1] = 0.05f; w.curveGain[1] = 0.5f;
